@@ -1,0 +1,6 @@
+.planning/
+.build/
+artifacts/
+.DS_Store
+*.xcuserstate
+DerivedData/

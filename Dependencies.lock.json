@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "whisperCpp": {
+    "repository": "https://github.com/ggml-org/whisper.cpp",
+    "release": "v1.9.5",
+    "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+    "sourceArchive": "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/d1be6fde11ac6e0407606b4e42fe72d34add8037",
+    "sourceArchiveSHA256": "645445da884df6dbd52b30f82d7be7c01d1767c938714e477e786b88d529e9f4",
+    "license": "MIT",
+    "buildStatus": "not-built",
+    "intendedArchitecture": "arm64",
+    "intendedDeploymentTarget": "14.0"
+  }
+}
