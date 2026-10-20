@@ -13,3 +13,4 @@ cmake -S .build/deps/whisper.cpp -B .build/backend \
   -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BLAS=ON \
   -DGGML_BLAS_VENDOR=Apple -DGGML_CCACHE=OFF
 cmake --build .build/backend --config Release --parallel 2 --target whisper
+python3 Scripts/backend-fingerprint.py

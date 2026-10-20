@@ -1,6 +1,8 @@
 import AVFAudio
+import AVFoundation
 import AudioToolbox
 import CoreAudio
+import Carbon
 import Foundation
 import NativeBridge
 
@@ -58,11 +60,12 @@ private final class Ingress: @unchecked Sendable {
 
 /// All AVAudioEngine lifecycle work and conversion is serialized on queue.
 /// The callback owns only its ingress reference; borrowed framework buffers never escape it.
-public final class CaptureService: @unchecked Sendable {
+public final class CaptureService: CaptureStopping, @unchecked Sendable {
     private let queue = DispatchQueue(label: "org.clavune.capture", qos: .userInitiated)
     private var active: CaptureSession?
     public init() {}
     public func start(session: UUID, deviceID: AudioDeviceID?, channel: Int, policy: ResourcePolicy,
+                      authorization: CaptureStartupGate,
                       onFirstSample: @escaping @Sendable () -> Void,
                       onProgress: @escaping @Sendable (Double, Float) -> Void,
                       onFailure: @escaping @Sendable (DictationError) -> Void) async throws {
@@ -70,6 +73,9 @@ public final class CaptureService: @unchecked Sendable {
             queue.async {
                 guard self.active == nil else { continuation.resume(throwing: DictationError.busy); return }
                 do {
+                    try authorization.check {
+                        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && !IsSecureEventInputEnabled()
+                    }
                     let run = try CaptureSession(id: session, queue: self.queue, deviceID: deviceID,
                         channel: channel, policy: policy, onFirst: onFirstSample,
                         onProgress: onProgress, onFailure: onFailure)
@@ -77,7 +83,7 @@ public final class CaptureService: @unchecked Sendable {
                     run.onFinished = { [weak owner = self] in
                         if owner?.active?.id == session { owner?.active = nil }
                     }
-                    try run.start()
+                    try run.start(authorization: authorization)
                     continuation.resume()
                 } catch {
                     self.active?.shutdown(); self.active = nil
@@ -86,14 +92,13 @@ public final class CaptureService: @unchecked Sendable {
             }
         }
     }
-    public func stop(session: UUID) async throws -> CapturedAudio {
-        let cutoff = mach_absolute_time()
+    public func stop(_ request: CaptureStopRequest) async throws -> CapturedAudio {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CapturedAudio, Error>) in
             queue.async {
-                guard let active = self.active, active.id == session else {
+                guard let active = self.active, active.id == request.session else {
                     continuation.resume(throwing: DictationError.noAudio); return
                 }
-                active.stop(cutoff: cutoff, completion: continuation)
+                active.stop(cutoff: request.cutoffHostTime, completion: continuation)
             }
         }
     }
@@ -126,6 +131,7 @@ private final class CaptureSession {
     private var cutoffSeconds: Double?
     private var startSeconds: Double = 0
     private var lastProgress = 0.0
+    private var meterPeak = CapturePeakAccumulator()
     private var firstDelivered = false
     private var closed = false
     private let onFirst: @Sendable () -> Void
@@ -157,11 +163,14 @@ private final class CaptureSession {
         scratch = .allocate(capacity: policy.maxNativeBlockFrames)
         scratch.initialize(repeating: 0, count: policy.maxNativeBlockFrames)
         let ring = ingress
+        let nativeRate = rate
+        let hostTicksPerSecond = Double(AVAudioTime.hostTime(forSeconds: 1))
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, time in
             // Only fixed metadata access and bounded C copy on the tap path.
             let samples = buffer.floatChannelData?[channel]
-            _ = ow_ring_push(ring.pointer, samples, buffer.frameLength,
-                time.hostTime, time.sampleTime, time.isHostTimeValid ? 1 : 0, time.isSampleTimeValid ? 1 : 0)
+            _ = ow_ring_push_buffer(ring.pointer, samples, buffer.frameLength,
+                time.hostTime, time.sampleTime, time.isHostTimeValid ? 1 : 0, time.isSampleTimeValid ? 1 : 0,
+                nativeRate, hostTicksPerSecond)
         }
         configurationObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { [weak self] _ in
@@ -173,10 +182,13 @@ private final class CaptureSession {
         scratch.deinitialize(count: policy.maxNativeBlockFrames); scratch.deallocate()
         if let configurationObserver { NotificationCenter.default.removeObserver(configurationObserver) }
     }
-    func start() throws {
+    func start(authorization: CaptureStartupGate) throws {
+        let allowed = { AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && !IsSecureEventInputEnabled() }
+        try authorization.check(privacyAllowsCapture: allowed)
         startSeconds = AVAudioTime.seconds(forHostTime: mach_absolute_time())
         engine.prepare()
-        try engine.start()
+        try authorization.start(privacyAllowsCapture: allowed, open: { try engine.start() },
+                                close: { shutdown() })
         let clock = DispatchSource.makeTimerSource(queue: queue)
         clock.schedule(deadline: .now(), repeating: .milliseconds(policy.pumpIntervalMilliseconds),
                        leeway: .milliseconds(2))
@@ -213,11 +225,13 @@ private final class CaptureSession {
                 }
                 if let cutoffSeconds, endpoint.covers(cutoffSeconds) { break }
             }
+            meterPeak.observe(level)
             let now = AVAudioTime.seconds(forHostTime: mach_absolute_time())
             if !firstDelivered && now - startSeconds >= policy.firstBufferTimeoutSeconds { throw DictationError.audioUnavailable }
             if now - startSeconds >= Double(policy.sessionLimitSeconds) { throw DictationError.durationLimit }
             if now - lastProgress >= 0.1 {
-                lastProgress = now; onProgress(Double(converter.count) / Double(policy.sampleRate), min(level, 1))
+                lastProgress = now
+                onProgress(Double(converter.count) / Double(policy.sampleRate), meterPeak.take())
             }
             if let cutoffSeconds {
                 if endpoint.covers(cutoffSeconds) { try complete() }

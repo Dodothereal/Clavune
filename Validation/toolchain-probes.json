@@ -1,0 +1,20 @@
+{
+  "toolchain": "Swift 6.4 on arm64",
+  "manifestConfigOnly": {
+    "before": "ProbeBefore",
+    "after": "ProbeAfter",
+    "stale": false
+  },
+  "externalArchiveOnly": {
+    "before": "1",
+    "after": "2",
+    "stale": false
+  },
+  "scope": "Tiny isolated fixture only; no application, microphone, model or permissions.",
+  "date": "2026-10-20",
+  "conclusion": "Neither candidate cache failure reproduced; Swift wrapper unchanged. Backend fingerprint is explicit provenance instrumentation.",
+  "commands": [
+    "swift package --package-path <fixture> --cache-path <fixture-cache> --config-path <fixture-config> --security-path <fixture-security> --scratch-path <fixture-build> dump-package",
+    "swift build --package-path <fixture> --cache-path <fixture-cache> --config-path <fixture-config> --security-path <fixture-security> --scratch-path <fixture-build> --jobs 2"
+  ]
+}

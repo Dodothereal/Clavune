@@ -21,8 +21,16 @@ struct ClavuneApp: App {
         MenuBarExtra {
             DictationView(coordinator: coordinator)
         } label: {
-            Label(coordinator.session.phase == .recording ? "REC" : ProductIdentity.displayName,
-                  systemImage: AppIcon.symbol(for: coordinator.session.phase))
+            Label(menuBarTitle,
+                  systemImage: AppIcon.symbol(for: coordinator.session.phase, microphone: coordinator.microphone.state))
         }.menuBarExtraStyle(.window)
+    }
+    private var menuBarTitle: String {
+        switch coordinator.microphone.state {
+        case .closed: return ProductIdentity.displayName
+        case .starting: return "MIC"
+        case .recording: return "REC"
+        case .closing: return "STOP"
+        }
     }
 }

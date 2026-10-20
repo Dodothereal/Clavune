@@ -1,7 +1,9 @@
 #include "ClavuneBridge.h"
 #include "whisper.h"
+#include "ClavuneBackendFingerprint.h"
 #include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <string>
@@ -9,6 +11,19 @@
 struct ow_engine { whisper_context * context; };
 struct ow_cancel { std::atomic<bool> cancelled{false}; };
 struct ow_result { int status = 3; std::string text; int language = -1; };
+extern "C" const char * ow_backend_fingerprint(void) { return CLAVUNE_BACKEND_FINGERPRINT; }
+extern "C" int ow_backend_environment_allowed(const char * encoder, const char * dylib) {
+    // Upstream treats a non-null getenv result as opt-in, even if the string is empty.
+    // Do not silently opt into a second encoder or caller-selected dlopen path.
+    return encoder == nullptr && dylib == nullptr;
+}
+extern "C" int ow_backend_state_ownership_patch_revision(void) {
+    return whisper_clavune_state_ownership_patch_revision();
+}
+static bool process_backend_environment_allowed() {
+    return ow_backend_environment_allowed(std::getenv("ANEFORGE_ENCODER"),
+                                          std::getenv("ANEFORGE_DYLIB")) != 0;
+}
 static void discard_log(ggml_log_level, const char *, void *) {}
 static bool aborted(void * opaque) {
     return static_cast<ow_cancel *>(opaque)->cancelled.load(std::memory_order_relaxed);
@@ -18,7 +33,8 @@ extern "C" ow_cancel * ow_cancel_create() { return new (std::nothrow) ow_cancel;
 extern "C" void ow_cancel_set(ow_cancel * c) { if(c) c->cancelled.store(true, std::memory_order_relaxed); }
 extern "C" void ow_cancel_destroy(ow_cancel * c) { delete c; }
 extern "C" ow_engine * ow_engine_create(const char * path, int gpu) {
-    if (!path) return nullptr;
+    if (!path || !process_backend_environment_allowed() ||
+        whisper_clavune_state_ownership_patch_revision() != 1) return nullptr;
     try {
         whisper_log_set(discard_log, nullptr);
         auto params = whisper_context_default_params();
@@ -50,6 +66,9 @@ extern "C" ow_result * ow_engine_decode(ow_engine * e, ow_cancel * cancel,
             result->status = 2; return result.release();
         }
         if (aborted(cancel)) { result->status = 1; return result.release(); }
+        // Recheck immediately before decoder state creation, where pinned upstream
+        // reads ANEFORGE_ENCODER and may dlopen ANEFORGE_DYLIB. No env values are logged.
+        if (!process_backend_environment_allowed()) return result.release();
         // Weights survive between requests; decoder state is private to this session.
         std::unique_ptr<whisper_state, decltype(&whisper_free_state)>
             state(whisper_init_state(e->context), whisper_free_state);

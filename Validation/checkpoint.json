@@ -11,30 +11,67 @@
     "command": "bash Scripts/build-backend.sh",
     "exitCode": 0,
     "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
-    "parallelJobs": 2
+    "parallelJobs": 2,
+    "patches": [
+      {
+        "path": "Patches/whisper.cpp/0001-state-exception-ownership.patch",
+        "sha256": "fdecbe22ec6f9c5a377cf5e81318183d414e2615e576fb393781546906914b0f"
+      },
+      {
+        "path": "Patches/whisper.cpp/0002-model-exception-ownership.patch",
+        "sha256": "8c031d4707b90638bf4f981c4dbda071ecd45af06f5b4728655b87775650c784"
+      },
+      {
+        "path": "Patches/whisper.cpp/0003-out-of-tree-configured-manifest.patch",
+        "sha256": "9581bcdf02a27ad7358e0b283e620a50c90bbaa7d1b387b36469b69d3da994c1"
+      }
+    ],
+    "verifiedSourceEntries": 2318,
+    "verifiedSourceTreeSHA256": "f16fbd481aab0e485e758c85a603292a70ef85b6b3bc3596236f862f44b0c9fc",
+    "sourceReverifiedAfterBuild": true,
+    "stateOwnershipPatchRevision": 1,
+    "archiveFingerprint": {
+      "schemaVersion": 1,
+      "fingerprint": "34fc21182d04a38499e56a654f046ae8e297054923bc9fbddc810c2387bc1438",
+      "dependencyLockSHA256": "cac3972cc50e125f4faf870f1d0babaa2c660fe5cf41c3166852f44c7a51c3f5",
+      "archiveSHA256": {
+        "src/libwhisper.a": "d5b78b192b0b3e7eefd673a115c6b23c0f76cbc7982ff096e3e8eb6358e2a868",
+        "ggml/src/libggml.a": "be8368827eca4c9840158281a15e730234014cfe538fbbcd187acb9f9a008958",
+        "ggml/src/libggml-base.a": "997625657fca0cb2e588e4dfd921fbc6c874e96fd0b2006af0344882e3da2f7f",
+        "ggml/src/libggml-cpu.a": "6aed99e824a89bbabcc4fcf35dc6a32b0d0dad65d0b90019b6590c352b9eb5f2",
+        "ggml/src/ggml-blas/libggml-blas.a": "25bfdee3a642eae8cf23d87f4dc60826ee3ad293c0d00fb55428b6c2651a6019",
+        "ggml/src/ggml-metal/libggml-metal.a": "b17c692aaab98615edd482a617f5edb6e39298193f5532ef1c108fe9608b402a"
+      }
+    },
+    "linkedPatchMarkerInRelease": true,
+    "fingerprintFoundInReleaseBinary": true,
+    "upstreamVersionBannerCaution": "The archive has no .git; ggml CMake banner can inherit the enclosing app commit. Use the locked upstream commit/archive/patches and full-tree proof as source identity."
   },
   "swiftBuild": {
-    "command": "bash Scripts/swift.sh build --jobs 2",
+    "command": "bash Scripts/swift.sh test --jobs 2 (includes Debug app/core build); bash Scripts/build-app.sh (Release)",
     "exitCode": 0
   },
   "tests": {
     "command": "bash Scripts/swift.sh test --jobs 2",
     "exitCode": 0,
-    "count": 16,
+    "count": 48,
     "failures": 0,
-    "scope": "synthetic PCM conversion/tail/cutoff backlog, state, model rejection, isolated insertion policy"
+    "scope": "synthetic PCM/cutoff, startup/cancel/state, bounded ingress, meter, isolated named pasteboard, tiny model recovery, shortcut validation, backend marker, isolated insertion policy"
   },
   "packaging": {
     "command": "bash Scripts/build-app.sh",
     "exitCode": 0,
     "artifact": "artifacts/Clavune.app",
-    "fileBytes": 7547973,
-    "executableBytes": 7535120,
+    "fileBytes": 7670036,
+    "executableBytes": 7656800,
     "signing": "ad-hoc development with Hardened Runtime; audio-input only",
     "bundleAudit": "arm64; minimum macOS 14.0; system-only dynamic dependencies",
     "appLaunched": false,
-    "executableSHA256": "d6c18134c6d735131576b4b5a38b548a152561fb5a9281328a5626e00dde2787",
-    "optimizedBuildSecondsReported": 3.93
+    "executableSHA256": "24508e1ecbffb38f7b4c58eb4de21ee926298dbdfcaae3ccbb4cb4d5dfed0e50",
+    "priorBaselineArtifact": "artifacts/baseline-b4c8eac/Clavune.app",
+    "stagedExclusivePublication": true,
+    "signatureVerificationExitCode": 0,
+    "resourceAudit": "packaged tree only; no development lookup"
   },
   "unmeasured": [
     "microphone hardware endpoint",
@@ -51,7 +88,31 @@
   "repository": "https://github.com/Dodothereal/Clavune",
   "repositoryVisibility": "PRIVATE",
   "review": {
-    "focusedReviewers": 2,
-    "findingsAddressed": "Validation/review-notes.md"
-  }
+    "findingsAddressed": "Validation/correctness-issue-ledger.md",
+    "nativeFaultCoverage": "Validation/native-ownership-review.md",
+    "crossVerification": "pending independent review of corrected immutable commit",
+    "efficiencyRound": "deferred until correctness cross-verification"
+  },
+  "checkpoint": "correctness repair; exact revision is the commit containing this file and immutable review metadata",
+  "baselineCommit": "b4c8eac2325d4b128cfbfe8580c7f02716dc8e55",
+  "pythonTests": {
+    "command": "python3 -m unittest discover -s Tests/Python -v",
+    "exitCode": 0,
+    "count": 23,
+    "failures": 0,
+    "scope": "offline source provenance, immutable review export, packaged-only resources, mocked failure-safe packaging"
+  },
+  "nativeHelperTests": {
+    "command": "bash Scripts/test-state-ownership.sh",
+    "exitCode": 0,
+    "matrixOutput": "Native ownership helper matrix passed: state allocation, 30 reserve failures, backend adoption/CPU failure, KV null/throw, 10 malloc failures, overflow, success transfer, 16 state recovery cycles, 12 model failure stages across 8 recovery cycles.",
+    "sanitizedCommand": "c++ -std=c++17 -O0 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I .build/deps/whisper.cpp/src Tests/Native/StateExceptionOwnershipTests.cpp -o .build/native-tests/state-exception-ownership-sanitized && .build/native-tests/state-exception-ownership-sanitized",
+    "sanitizedExitCode": 0,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "actualGGMLMetalModelFaultInjection": false
+  },
+  "repositoryVerifiedPrivate": true
 }

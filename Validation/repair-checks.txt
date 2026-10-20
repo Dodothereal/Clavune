@@ -1,0 +1,17 @@
+Clavune correctness repair evidence; no app launch, microphone, real model or benchmark.
+Python command: python3 -m unittest discover -s Tests/Python -v; exit 0; 23 tests; zero failures.
+Swift command: bash Scripts/swift.sh test --jobs 2; exit 0; 48 XCTest cases; zero failures.
+Native helper command: bash Scripts/test-state-ownership.sh; exit 0.
+Native ownership helper matrix passed: state allocation, 30 reserve failures, backend adoption/CPU failure, KV null/throw, 10 malloc failures, overflow, success transfer, 16 state recovery cycles, 12 model failure stages across 8 recovery cycles.
+ASan/UBSan native helper compile and run: exit 0; no sanitizer diagnostics.
+Backend/app build: bash Scripts/build-app.sh; exit 0; two jobs; SwiftPM sandbox enabled.
+Backend link fingerprint: 34fc21182d04a38499e56a654f046ae8e297054923bc9fbddc810c2387bc1438
+Bundle audit passed: arm64, macOS 14.0 minimum, system-only dynamic dependencies.
+Packaged resources passed: Contents/Resources/Clavune_ClavuneCore.bundle (no development lookup).
+Resource SHA-256 resource-policy.json: 5ad7718f2d9bb4871ceda14cb60ee3e932c38d85f410426884c5cc74e981c9e2
+Resource SHA-256 candidates.json: c9fee868889d4ba5424f22dcda12262dcc643ccbcfe7ddb49a033dfe2a23c379
+Development app: artifacts/Clavune.app
+Backend source verified: 2318 entries; tree SHA-256: f16fbd481aab0e485e758c85a603292a70ef85b6b3bc3596236f862f44b0c9fc
+Release binary contains the exact generated backend fingerprint and the patched upstream revision symbol.
+codesign --verify --deep --strict: exit 0.
+GitHub API: Dodothereal/Clavune; private=true; branch=main.

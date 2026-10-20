@@ -1,4 +1,5 @@
 import Foundation
+import NativeBridge
 
 public enum SessionPhase: String, Sendable {
     case idle, preparing, recording, stopping, transcribing, review, cancelled, failed
@@ -17,9 +18,15 @@ public struct SessionMachine: Sendable {
         id = next; phase = .preparing; failure = nil; rawTranscript = ""
         return next
     }
-    public mutating func recording(_ session: UUID) {
-        guard id == session, phase == .preparing else { return }
-        phase = .recording
+    /// Acquire fallible resources before committing a new session or erasing its review.
+    public mutating func begin<Resource>(preparing makeResource: () throws -> Resource) throws -> (id: UUID, resource: Resource) {
+        guard !phase.isBusy else { throw DictationError.busy }
+        let resource = try makeResource()
+        return (try begin(), resource)
+    }
+    @discardableResult public mutating func recording(_ session: UUID) -> Bool {
+        guard id == session, phase == .preparing else { return false }
+        phase = .recording; return true
     }
     @discardableResult public mutating func stopping(_ session: UUID) -> Bool {
         guard id == session, phase == .recording else { return false }
@@ -47,6 +54,7 @@ public struct SessionMachine: Sendable {
 
 public struct SessionMetrics: Sendable {
     public let session: UUID
+    public let backendFingerprint: String
     public var requestedStart: UInt64
     public var firstSample: UInt64?
     public var requestedStop: UInt64?
@@ -61,6 +69,7 @@ public struct SessionMetrics: Sendable {
     public var decodeSeconds: Double?
     public init(session: UUID, requestedStart: UInt64) {
         self.session = session; self.requestedStart = requestedStart
+        self.backendFingerprint = String(cString: ow_backend_fingerprint())
     }
     // No text, paths, clipboard or audio content belongs in this structure.
 }

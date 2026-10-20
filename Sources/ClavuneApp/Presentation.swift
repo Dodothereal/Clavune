@@ -3,7 +3,8 @@ import ClavuneCore
 import SwiftUI
 
 enum AppIcon {
-    static func symbol(for phase: SessionPhase) -> String {
+    static func symbol(for phase: SessionPhase, microphone: MicrophoneLifecycle.State) -> String {
+        if microphone != .closed { return "mic.fill" }
         switch phase {
         case .recording: return "mic.fill"
         case .preparing, .stopping, .transcribing: return "waveform"
@@ -19,7 +20,7 @@ struct DictationView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(ProductIdentity.displayName, systemImage: AppIcon.symbol(for: coordinator.session.phase))
+            Label(ProductIdentity.displayName, systemImage: AppIcon.symbol(for: coordinator.session.phase, microphone: coordinator.microphone.state))
                 .font(.headline)
             Text(coordinator.message).font(.callout).accessibilityAddTraits(.updatesFrequently)
             if coordinator.session.phase == .recording || coordinator.session.phase == .stopping {
@@ -38,14 +39,18 @@ struct DictationView: View {
                 TranscriptEditor(text: $coordinator.editedText).frame(minHeight: 130)
                     .accessibilityLabel("Bearbeitbare Transkriptvorschau")
                 DisclosureGroup("Unveränderte Erkennungsausgabe") {
-                    ScrollView { Text(coordinator.session.rawTranscript).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
-                        .frame(maxHeight: 100)
+                    TranscriptEditor(text: .constant(coordinator.session.rawTranscript), isEditable: false)
+                        .frame(minHeight: 70, maxHeight: 100)
+                        .accessibilityLabel("Unveränderte Erkennungsausgabe, auswählbar und kopierbar")
                 }
                 HStack {
                     Button("Kopieren", action: coordinator.copy).disabled(coordinator.editedText.isEmpty)
                     Button("Verwerfen", action: coordinator.discard)
                 }
                 Text("Die Vorschau bleibt nur im Arbeitsspeicher. Kopieren ersetzt bewusst die Zwischenablage.").font(.caption)
+            }
+            if !coordinator.busy, coordinator.microphone.state == .closed {
+                Button("Fenster ausblenden", action: coordinator.hidePanel)
             }
             Divider()
             DisclosureGroup("Einstellungen und Modell") {
@@ -65,6 +70,10 @@ struct DictationView: View {
                     Stepper("Eingangskanal: \(coordinator.channel + 1)", value: $coordinator.channel, in: 0...31)
                         .disabled(coordinator.busy)
                     Button("Geräte aktualisieren", action: coordinator.refreshDevices).disabled(coordinator.busy)
+                    Picker("Vorläufiges Entwicklungskürzel", selection: $coordinator.developmentShortcut) {
+                        ForEach(DevelopmentShortcut.allCases) { Text($0.title).tag($0) }
+                    }.disabled(coordinator.busy || coordinator.hotkeyEnabled)
+                    Text("Ctrl–Option–Leertaste bleibt für VoiceOver reserviert. Weitere System- oder App-Konflikte können bestehen.").font(.caption)
                     Toggle("Globalen Hotkey aktivieren (Entwicklung)", isOn: $coordinator.hotkeyEnabled)
                         .onChange(of: coordinator.hotkeyEnabled) { coordinator.configureHotkey() }
                         .disabled(coordinator.busy)
@@ -78,6 +87,7 @@ struct DictationView: View {
                 DisclosureGroup("Lokale Messpunkte") {
                     VStack(alignment: .leading) {
                         Text("PCM: \(metrics.frames16k) Samples")
+                        Text("Backend-Prüfsumme: \(metrics.backendFingerprint)").font(.caption.monospaced())
                         if let seconds = metrics.modelLoadSeconds { Text(String(format: "Modellladen: %.3f s (%@)", seconds, metrics.modelWarm ? "warm" : "kalt")) }
                         if let seconds = metrics.decodeSeconds { Text(String(format: "Batch-Aufruf: %.3f s", seconds)) }
                         Text("Einfügen, Energie, Gesamtspeicher und Qualitätsvergleich: ungemessen")
@@ -98,11 +108,20 @@ struct DictationView: View {
 
 struct TranscriptEditor: NSViewRepresentable {
     @Binding var text: String
+    var isEditable = true
     func makeCoordinator() -> Delegate { Delegate(self) }
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSTextView.scrollableTextView()
-        guard let editor = scroll.documentView as? NSTextView else { return scroll }
-        editor.isRichText = false; editor.allowsUndo = true
+        let scroll = NSScrollView()
+        let editor = PlainTranscriptTextView(frame: .zero)
+        scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
+        scroll.documentView = editor
+        editor.isVerticallyResizable = true; editor.isHorizontallyResizable = false
+        editor.autoresizingMask = [.width]
+        editor.minSize = .zero
+        editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        editor.textContainer?.widthTracksTextView = true
+        editor.isRichText = false; editor.allowsUndo = isEditable
+        editor.isEditable = isEditable; editor.isSelectable = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
         editor.isAutomaticDashSubstitutionEnabled = false
         editor.isAutomaticTextReplacementEnabled = false
@@ -123,7 +142,7 @@ struct TranscriptEditor: NSViewRepresentable {
         var parent: TranscriptEditor
         init(_ parent: TranscriptEditor) { self.parent = parent }
         func textDidChange(_ note: Notification) {
-            if let editor = note.object as? NSTextView { parent.text = editor.string }
+            if parent.isEditable, let editor = note.object as? NSTextView { parent.text = editor.string }
         }
     }
 }

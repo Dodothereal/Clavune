@@ -1,0 +1,330 @@
+diff --git a/src/whisper-init-ownership.h b/src/whisper-init-ownership.h
+new file mode 100644
+--- /dev/null
++++ b/src/whisper-init-ownership.h
+@@ -0,0 +1,86 @@
++#ifndef WHISPER_INIT_OWNERSHIP_H
++#define WHISPER_INIT_OWNERSHIP_H
++
++#include <cstdlib>
++#include <limits>
++#include <memory>
++#include <new>
++#include <type_traits>
++#include <vector>
++
++// Value initialization makes partially constructed C-style resource fields safe
++// for the normal deleter before any backend/cache/vector acquisition succeeds.
++template <typename T, void (*Destroy)(T *)>
++std::unique_ptr<T, decltype(Destroy)> whisper_make_init_owner() {
++    return std::unique_ptr<T, decltype(Destroy)>(new T{}, Destroy);
++}
++
++// Take ownership without allocating. Native deleters are non-throwing.
++template <typename Handle, void (*Destroy)(Handle)>
++auto whisper_own_handle(Handle handle) {
++    return std::unique_ptr<typename std::remove_pointer<Handle>::type, decltype(Destroy)>(handle, Destroy);
++}
++
++// The acquired handle stays owned if a container insertion allocates or throws.
++template <typename Handle, void (*Destroy)(Handle), typename Container>
++void whisper_adopt_handle(Container & destination, Handle handle) {
++    auto owner = whisper_own_handle<Handle, Destroy>(handle);
++    destination.emplace_back(handle);
++    owner.release();
++}
++
++// Stack-owned C-style aggregates, such as batch allocation tables, must be safe
++// for partial cleanup and transfer their pointer fields only after full success.
++template <typename T, void (*Destroy)(T)>
++class whisper_init_value_owner {
++    static_assert(std::is_trivially_copyable<T>::value, "resource aggregate must copy without throwing");
++    T value{};
++    bool owned = true;
++public:
++    whisper_init_value_owner() = default;
++    whisper_init_value_owner(const whisper_init_value_owner &) = delete;
++    whisper_init_value_owner & operator=(const whisper_init_value_owner &) = delete;
++    ~whisper_init_value_owner() { if (owned) Destroy(value); }
++    T & get() noexcept { return value; }
++    T release() noexcept { owned = false; return value; }
++};
++
++inline size_t whisper_checked_allocation_size(size_t count, size_t element_size) {
++    if (element_size && count > std::numeric_limits<size_t>::max() / element_size) {
++        throw std::bad_alloc();
++    }
++    return count * element_size;
++}
++
++// Allocator argument supports isolated fault injection of this production check.
++// The shipped path always uses the standard C allocator.
++inline void * whisper_checked_malloc(size_t bytes, void * (*allocate)(size_t) = std::malloc) {
++    if (void * result = allocate(bytes)) return result;
++    throw std::bad_alloc();
++}
++
++// Own native handles immediately, including while push_back can allocate/throw.
++// A successful release transfers the same ordered vector to its final owner.
++template <typename Handle, void (*Destroy)(Handle)>
++class whisper_owned_handles {
++    std::vector<Handle> handles;
++public:
++    whisper_owned_handles() = default;
++    whisper_owned_handles(const whisper_owned_handles &) = delete;
++    whisper_owned_handles & operator=(const whisper_owned_handles &) = delete;
++    ~whisper_owned_handles() {
++        for (auto handle : handles) {
++            Destroy(handle);
++        }
++    }
++    void push_back(Handle handle) {
++        whisper_adopt_handle<Handle, Destroy>(handles, handle);
++    }
++    std::vector<Handle> release() noexcept {
++        std::vector<Handle> result;
++        result.swap(handles);
++        return result;
++    }
++};
++
++#endif
+diff --git a/include/whisper.h b/include/whisper.h
+--- a/include/whisper.h
++++ b/include/whisper.h
+@@ -267,6 +267,9 @@
+     // Frees all allocated memory
+     WHISPER_API void whisper_free      (struct whisper_context * ctx);
+     WHISPER_API void whisper_free_state(struct whisper_state * state);
++
++    // Downstream correctness marker; performs no model/backend initialization.
++    WHISPER_API int whisper_clavune_state_ownership_patch_revision(void);
+     WHISPER_API void whisper_free_params(struct whisper_full_params * params);
+     WHISPER_API void whisper_free_context_params(struct whisper_context_params * params);
+ 
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -1,5 +1,6 @@
+ #include "whisper.h"
+ #include "whisper-arch.h"
++#include "whisper-init-ownership.h"
+ 
+ #include "ggml.h"
+ #include "ggml-cpp.h"
+@@ -485,20 +486,29 @@
+     int8_t         *  logits;
+ };
+ 
++static void whisper_batch_free(struct whisper_batch batch);
++
+ static struct whisper_batch whisper_batch_init(int32_t n_tokens, int32_t n_seq_max) {
+-    whisper_batch batch = { 0, nullptr, nullptr, nullptr, nullptr, nullptr, };
+-
+-    batch.token    = (whisper_token *  ) malloc(sizeof(whisper_token)    * (n_tokens));
+-    batch.pos      = (whisper_pos *)     malloc(sizeof(whisper_pos)      * (n_tokens));
+-    batch.n_seq_id = (int32_t *)         malloc(sizeof(int32_t)          * (n_tokens));
+-    batch.seq_id   = (whisper_seq_id **) malloc(sizeof(whisper_seq_id *) * (n_tokens + 1));
++    if (n_tokens <= 0 || n_seq_max <= 0) {
++        throw std::bad_alloc();
++    }
++    whisper_init_value_owner<whisper_batch, whisper_batch_free> owner;
++    whisper_batch & batch = owner.get();
++    const size_t count = size_t(n_tokens);
++
++    batch.token    = (whisper_token *  ) whisper_checked_malloc(whisper_checked_allocation_size(count, sizeof(whisper_token)));
++    batch.pos      = (whisper_pos *)     whisper_checked_malloc(whisper_checked_allocation_size(count, sizeof(whisper_pos)));
++    batch.n_seq_id = (int32_t *)         whisper_checked_malloc(whisper_checked_allocation_size(count, sizeof(int32_t)));
++    batch.seq_id   = (whisper_seq_id **) whisper_checked_malloc(whisper_checked_allocation_size(count + 1, sizeof(whisper_seq_id *)));
++    // Initialize the whole table (including sentinel) before any row can fail.
++    std::fill_n(batch.seq_id, count + 1, nullptr);
+     for (int i = 0; i < n_tokens; ++i) {
+-        batch.seq_id[i] = (whisper_seq_id *) malloc(sizeof(whisper_seq_id)   * n_seq_max);
++        batch.seq_id[i] = (whisper_seq_id *) whisper_checked_malloc(whisper_checked_allocation_size(size_t(n_seq_max), sizeof(whisper_seq_id)));
+     }
+     batch.seq_id[n_tokens] = nullptr;
+-    batch.logits   = (int8_t *)          malloc(sizeof(int8_t)           * n_tokens);
+-
+-    return batch;
++    batch.logits   = (int8_t *)          whisper_checked_malloc(whisper_checked_allocation_size(count, sizeof(int8_t)));
++
++    return owner.release();
+ }
+ 
+ static void whisper_batch_free(struct whisper_batch batch) {
+@@ -868,7 +878,7 @@
+ 
+     whisper_mel mel;
+ 
+-    whisper_batch batch;
++    whisper_batch batch{};
+ 
+     whisper_decoder decoders[WHISPER_MAX_DECODERS];
+ 
+@@ -1001,7 +1011,8 @@
+     cache.cells.clear();
+     cache.cells.resize(n_ctx);
+ 
+-    struct ggml_context * ctx = ggml_init(params);
++    auto context_owner = whisper_own_handle<ggml_context *, ggml_free>(ggml_init(params));
++    struct ggml_context * ctx = context_owner.get();
+ 
+     if (!ctx) {
+         WHISPER_LOG_ERROR("%s: failed to allocate memory for the kv cache context\n", __func__);
+@@ -1019,7 +1030,6 @@
+ 
+     ggml_backend_buffer_clear(cache.buffer, 0);
+ 
+-    ggml_free(ctx);
+ 
+     return true;
+ }
+@@ -1339,7 +1349,7 @@
+ }
+ 
+ static std::vector<ggml_backend_t> whisper_backend_init(const whisper_context_params & params) {
+-    std::vector<ggml_backend_t> result;
++    whisper_owned_handles<ggml_backend_t, ggml_backend_free> result;
+ 
+     ggml_backend_t backend_gpu = whisper_backend_init_gpu(params);
+ 
+@@ -1367,7 +1377,7 @@
+     }
+     result.push_back(backend_cpu);
+ 
+-    return result;
++    return result.release();
+ }
+ 
+ using buft_list_t = std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>>;
+@@ -3451,13 +3461,13 @@
+ }
+ #endif
+ 
+-struct whisper_state * whisper_init_state(whisper_context * ctx) {
+-    whisper_state * state = new whisper_state;
++struct whisper_state * whisper_init_state(whisper_context * ctx) try {
++    auto owner = whisper_make_init_owner<whisper_state, whisper_free_state>();
++    whisper_state * state = owner.get();
+ 
+     state->backends = whisper_backend_init(ctx->params);
+     if (state->backends.empty()) {
+         WHISPER_LOG_ERROR("%s: whisper_backend_init() failed\n", __func__);
+-        whisper_free_state(state);
+         return nullptr;
+     }
+ 
+@@ -3469,7 +3479,6 @@
+                 ctx->model.hparams.n_text_layer,
+                 GGML_PAD(ctx->model.hparams.n_text_ctx, 256))) {
+         WHISPER_LOG_ERROR("%s: whisper_kv_cache_init() failed for self-attention cache\n", __func__);
+-        whisper_free_state(state);
+         return nullptr;
+     }
+ 
+@@ -3483,7 +3492,6 @@
+                 ctx->model.hparams.n_text_layer,
+                 GGML_PAD(ctx->model.hparams.n_audio_ctx, 256))) {
+         WHISPER_LOG_ERROR("%s: whisper_kv_cache_init() failed for cross-attention cache\n", __func__);
+-        whisper_free_state(state);
+         return nullptr;
+     }
+ 
+@@ -3497,7 +3505,6 @@
+                 1,
+                 GGML_PAD(ctx->model.hparams.n_audio_ctx, 256))) {
+         WHISPER_LOG_ERROR("%s: whisper_kv_cache_init() failed for self-attention cache\n", __func__);
+-        whisper_free_state(state);
+         return nullptr;
+     }
+ 
+@@ -3510,7 +3517,6 @@
+     if (ctx->params.dtw_token_timestamps) {
+         if (!aheads_masks_init(ctx->params, ctx->model.hparams, state->aheads_masks, state->backends[0])) {
+             WHISPER_LOG_ERROR("%s: aheads_masks_init() failed for alignment heads masks\n", __func__);
+-            whisper_free_state(state);
+             return nullptr;
+         }
+         const size_t memory_size = aheads_masks_nbytes(state->aheads_masks);
+@@ -3527,7 +3533,6 @@
+     if (!state->ctx_coreml) {
+         WHISPER_LOG_ERROR("%s: failed to load Core ML model from '%s'\n", __func__, path_coreml.c_str());
+ #ifndef WHISPER_COREML_ALLOW_FALLBACK
+-        whisper_free_state(state);
+         return nullptr;
+ #endif
+     } else {
+@@ -3541,7 +3546,6 @@
+     state->ctx_vitisai = whisper_vitisai_init(path_vitisai.c_str());
+     if (!state->ctx_vitisai) {
+         WHISPER_LOG_ERROR("%s: failed to load Vitis AI model from '%s'\n", __func__, path_vitisai.c_str());
+-        whisper_free_state(state);
+         return nullptr;
+     } else if (whisper_vitisai_has_cross_proj(state->ctx_vitisai)) {
+         WHISPER_LOG_INFO("%s: Vitis AI encoder + cross projection model loaded\n", __func__);
+@@ -3556,7 +3560,6 @@
+         state->ctx_aneforge = whisper_aneforge_init(aneforge_dir);
+         if (!state->ctx_aneforge) {
+             WHISPER_LOG_ERROR("%s: failed to load ANEForge encoder from '%s'\n", __func__, aneforge_dir);
+-            whisper_free_state(state);
+             return nullptr;
+         }
+         WHISPER_LOG_INFO("%s: ANEForge encoder loaded\n", __func__);
+@@ -3565,6 +3568,10 @@
+     state->logits.reserve(ctx->vocab.n_vocab * ctx->model.hparams.n_text_ctx);
+ 
+     state->batch = whisper_batch_init(ctx->model.hparams.n_text_ctx, WHISPER_MAX_DECODERS);
++    if (!state->batch.token || !state->batch.pos || !state->batch.n_seq_id ||
++            !state->batch.seq_id || !state->batch.logits) {
++        return nullptr;
++    }
+ 
+     // TAGS: WHISPER_DECODER_INIT
+     state->decoders[0].sequence.tokens.reserve(ctx->model.hparams.n_text_ctx);
+@@ -3585,7 +3592,6 @@
+ 
+         if (!ok) {
+             WHISPER_LOG_ERROR("%s: failed to init conv allocator\n", __func__);
+-            whisper_free_state(state);
+             return nullptr;
+         }
+ 
+@@ -3601,7 +3607,6 @@
+ 
+         if (!ok) {
+             WHISPER_LOG_ERROR("%s: failed to init encoder allocator\n", __func__);
+-            whisper_free_state(state);
+             return nullptr;
+         }
+ 
+@@ -3617,7 +3622,6 @@
+ 
+         if (!ok) {
+             WHISPER_LOG_ERROR("%s: failed to init cross allocator\n", __func__);
+-            whisper_free_state(state);
+             return nullptr;
+         }
+ 
+@@ -3641,14 +3645,20 @@
+ 
+         if (!ok) {
+             WHISPER_LOG_ERROR("%s: failed to init decoder allocator\n", __func__);
+-            whisper_free_state(state);
+             return nullptr;
+         }
+ 
+         WHISPER_LOG_INFO("%s: compute buffer (decode) = %7.2f MB\n", __func__, whisper_sched_size(state->sched_decode) / 1e6);
+     }
+ 
+-    return state;
++    return owner.release();
++} catch (...) {
++    // All acquired state resources have unwound; never pass an exception over C ABI.
++    return nullptr;
++}
++
++int whisper_clavune_state_ownership_patch_revision(void) {
++    return 1;
+ }
+ 
+ int whisper_ctx_init_openvino_encoder_with_state(

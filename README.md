@@ -9,7 +9,7 @@ Native offline macOS dictation, currently a private development checkpoint. Clav
 - Pinned embedded whisper.cpp v1.9.5 with static CPU/Accelerate and Metal support.
 - Deliberate hash-checked local model import; four candidates, no promoted default.
 - In-memory batch transcription, unmodified raw result, editable preview and deliberate copy.
-- Optional development Carbon chord, Ctrl–Option–Space, with hold/toggle handling.
+- Opt-in provisional Carbon shortcuts (Ctrl–Shift–Space or Cmd–Shift–Space), with hold/toggle handling. The VoiceOver Ctrl–Option–Space chord is rejected; full shortcut and accessibility QA remain open.
 - Isolated insertion policy foundations. External insertion and automatic paste are not enabled.
 
 Build and tests: [Docs/BUILD.md](Docs/BUILD.md). Current evidence and outstanding work: [STATUS.md](STATUS.md).

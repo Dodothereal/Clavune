@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python3 -m unittest discover -s Tests/Python -v
       - run: bash Scripts/build-backend.sh
+      - run: bash Scripts/test-state-ownership.sh
       - run: bash Scripts/swift.sh test --jobs 2
       - run: bash Scripts/build-app.sh

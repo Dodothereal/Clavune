@@ -1,15 +1,19 @@
 import AppKit
 import Carbon
+import ClavuneCore
 
 /// Carbon registration observes only the registered chord. No event tap or text logging.
-/// Fixed development chord; configurable recorder and layout/device QA remain an M2 gate.
+/// Validated provisional choices; full recorder and layout/device QA remain an M2 gate.
 @MainActor
 final class HotkeyService {
     private var reference: EventHotKeyRef?
     private var handler: EventHandlerRef?
     private var pressed = false
     private let action: (Bool) -> Void
-    init(action: @escaping (Bool) -> Void) throws {
+    init(shortcut: DevelopmentShortcut, action: @escaping (Bool) -> Void) throws {
+        guard DevelopmentShortcut.permits(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) else {
+            throw DictationErrorPlaceholder.registration
+        }
         self.action = action
         var types = [
             EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
@@ -25,7 +29,7 @@ final class HotkeyService {
         }, types.count, &types, opaque, &handler)
         guard installed == noErr else { throw DictationErrorPlaceholder.registration }
         let id = EventHotKeyID(signature: 0x4F575350, id: 1)
-        let result = RegisterEventHotKey(UInt32(kVK_Space), UInt32(controlKey | optionKey), id,
+        let result = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, id,
                                          GetApplicationEventTarget(), 0, &reference)
         guard result == noErr else { unregister(); throw DictationErrorPlaceholder.registration }
     }

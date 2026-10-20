@@ -34,13 +34,14 @@ public struct ResourcePolicy: Decodable, Sendable {
 }
 
 public enum DictationError: String, Error, LocalizedError, Sendable {
-    case configuration, permissionDenied, unsupportedFormat, audioUnavailable
+    case configuration, permissionDenied, privacyBlocked, unsupportedFormat, audioUnavailable
     case overflow, durationLimit, discontinuity, endpointUncertain, noAudio
     case modelMissing, modelMismatch, modelInvalid, inferenceFailed, cancelled, busy
     public var errorDescription: String? {
         switch self {
         case .configuration: return "Die lokale Konfiguration ist ungültig."
         case .permissionDenied: return "Mikrofonzugriff ist nicht erlaubt. Aufnahme wurde nicht gestartet."
+        case .privacyBlocked: return "Secure Input oder Mikrofonberechtigung hat sich geändert. Aufnahme bleibt geschlossen."
         case .unsupportedFormat: return "Das Eingangsformat oder der gewählte Kanal wird nicht unterstützt."
         case .audioUnavailable: return "Das Mikrofon liefert keine nutzbaren Daten. Bitte Gerät und Berechtigung prüfen."
         case .overflow: return "Der begrenzte Audiopuffer ist übergelaufen. Diese Aufnahme wurde als unvollständig verworfen."

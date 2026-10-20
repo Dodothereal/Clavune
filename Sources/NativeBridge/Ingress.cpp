@@ -1,5 +1,6 @@
 #include "ClavuneBridge.h"
 #include <atomic>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -42,6 +43,64 @@ extern "C" int ow_ring_push(ow_ring * r, const float * input, uint32_t frames,
     r->metadata[slot] = {frames, host, sample, w, hv, sv};
     if (hv && w == 0) r->first_host.store(host, std::memory_order_release);
     r->write.store(w + 1, std::memory_order_release);
+    return 1;
+}
+static int reject_buffer(ow_ring * r) {
+    r->losses.fetch_add(1, std::memory_order_relaxed);
+    return 0;
+}
+extern "C" int ow_ring_push_buffer(ow_ring * r, const float * input, uint32_t frames,
+                                   uint64_t host, int64_t sample, uint8_t hv, uint8_t sv,
+                                   double native_rate, double host_ticks_per_second) {
+    if (!r || !r->accepting.load(std::memory_order_acquire)) return 0;
+    if (!input || frames == 0 || !std::isfinite(native_rate) || native_rate <= 0 ||
+        !std::isfinite(host_ticks_per_second) || host_ticks_per_second <= 0) {
+        return reject_buffer(r);
+    }
+    const uint64_t chunks = (uint64_t(frames) + r->max_frames - 1) / r->max_frames;
+    const auto w = r->write.load(std::memory_order_relaxed);
+    const auto rd = r->read.load(std::memory_order_acquire);
+    const uint64_t occupied = w - rd;
+    if (chunks > r->slots || occupied > r->slots || chunks > r->slots - occupied) {
+        return reject_buffer(r);
+    }
+
+    // Validate all timestamp arithmetic before touching any unpublished slot.
+    // The consumer also advances each block's sample position by its frame count.
+    if (sv && sample > std::numeric_limits<int64_t>::max() - int64_t(frames)) {
+        return reject_buffer(r);
+    }
+    const long double ticks_per_frame =
+        static_cast<long double>(host_ticks_per_second) / native_rate;
+    if (!std::isfinite(ticks_per_frame) || ticks_per_frame <= 0) return reject_buffer(r);
+    const uint64_t last_offset = (chunks - 1) * r->max_frames;
+    if (hv) {
+        const long double last_ticks = std::round(last_offset * ticks_per_frame);
+        // Use an exclusive power-of-two bound: some platforms' long double is double.
+        constexpr long double uint64_exclusive_bound = 18446744073709551616.0L;
+        if (!std::isfinite(last_ticks) || last_ticks < 0 ||
+            last_ticks >= uint64_exclusive_bound) return reject_buffer(r);
+        const auto last_delta = static_cast<uint64_t>(last_ticks);
+        if (host > std::numeric_limits<uint64_t>::max() - last_delta) return reject_buffer(r);
+    }
+
+    uint64_t offset = 0;
+    for (uint64_t chunk = 0; chunk < chunks; ++chunk) {
+        const auto remaining = uint64_t(frames) - offset;
+        const auto amount = static_cast<uint32_t>(
+            remaining < r->max_frames ? remaining : r->max_frames);
+        const auto slot = (w + chunk) % r->slots;
+        const auto chunk_host = hv
+            ? host + static_cast<uint64_t>(std::round(offset * ticks_per_frame)) : host;
+        const auto chunk_sample = sv ? sample + static_cast<int64_t>(offset) : sample;
+        std::memcpy(r->samples.get() + slot * r->max_frames, input + offset,
+                    size_t(amount) * sizeof(float));
+        r->metadata[slot] = {amount, chunk_host, chunk_sample, w + chunk, hv, sv};
+        offset += amount;
+    }
+    if (hv && w == 0) r->first_host.store(host, std::memory_order_release);
+    // The consumer sees every adapted slot together, never a partially published callback.
+    r->write.store(w + chunks, std::memory_order_release);
     return 1;
 }
 extern "C" int ow_ring_pop(ow_ring * r, float * output, uint32_t capacity, ow_block * block) {

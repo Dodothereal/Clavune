@@ -4,6 +4,7 @@ import plistlib
 import re
 import subprocess
 import sys
+from resource_validation import ResourceValidationError, validate_packaged_resources
 
 bundle = Path(sys.argv[1])
 info = plistlib.loads((bundle / "Contents/Info.plist").read_bytes())
@@ -20,4 +21,11 @@ load_commands = subprocess.check_output(["/usr/bin/otool", "-l", str(binary)], t
 minimums = re.findall(r"^\s*minos\s+(\S+)", load_commands, re.MULTILINE)
 if minimums != ["14.0"]:
     raise SystemExit("Unexpected minimum macOS: " + repr(minimums))
+try:
+    resources = validate_packaged_resources(bundle, info["CFBundleExecutable"])
+except ResourceValidationError as error:
+    raise SystemExit("Packaged resource audit failed: " + str(error)) from error
 print("Bundle audit passed: arm64, macOS 14.0 minimum, system-only dynamic dependencies.")
+print("Packaged resources passed: " + resources["resourceBundle"] + " (no development lookup).")
+for name, digest in resources["sha256"].items():
+    print("Resource SHA-256 " + name + ": " + digest)

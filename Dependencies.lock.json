@@ -7,8 +7,21 @@
     "sourceArchive": "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/d1be6fde11ac6e0407606b4e42fe72d34add8037",
     "sourceArchiveSHA256": "645445da884df6dbd52b30f82d7be7c01d1767c938714e477e786b88d529e9f4",
     "license": "MIT",
-    "buildStatus": "not-built",
     "intendedArchitecture": "arm64",
-    "intendedDeploymentTarget": "14.0"
+    "intendedDeploymentTarget": "14.0",
+    "patches": [
+      {
+        "path": "Patches/whisper.cpp/0001-state-exception-ownership.patch",
+        "sha256": "fdecbe22ec6f9c5a377cf5e81318183d414e2615e576fb393781546906914b0f"
+      },
+      {
+        "path": "Patches/whisper.cpp/0002-model-exception-ownership.patch",
+        "sha256": "8c031d4707b90638bf4f981c4dbda071ecd45af06f5b4728655b87775650c784"
+      },
+      {
+        "path": "Patches/whisper.cpp/0003-out-of-tree-configured-manifest.patch",
+        "sha256": "9581bcdf02a27ad7358e0b283e620a50c90bbaa7d1b387b36469b69d3da994c1"
+      }
+    ]
   }
 }

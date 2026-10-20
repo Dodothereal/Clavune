@@ -16,7 +16,8 @@ let package = Package(
             name: "NativeBridge",
             publicHeadersPath: "include",
             cxxSettings: [.unsafeFlags(["-I" + root + "/.build/deps/whisper.cpp/include",
-                                       "-I" + root + "/.build/deps/whisper.cpp/ggml/include"])],
+                                       "-I" + root + "/.build/deps/whisper.cpp/ggml/include",
+                                       "-I" + backend])],
             linkerSettings: [
                 .unsafeFlags(["-L" + backend + "/src", "-L" + backend + "/ggml/src",
                               "-L" + backend + "/ggml/src/ggml-cpu",

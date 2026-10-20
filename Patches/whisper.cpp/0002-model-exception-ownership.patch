@@ -1,0 +1,194 @@
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -1716,13 +1716,14 @@
+                 /*.no_alloc   =*/ true,
+             };
+ 
+-            ggml_context * ctx = ggml_init(params);
++            auto context_owner = whisper_own_handle<ggml_context *, ggml_free>(ggml_init(params));
++            ggml_context * ctx = context_owner.get();
+             if (!ctx) {
+                 throw std::runtime_error("failed to create ggml context");
+             }
+ 
+             ctx_map[buft] = ctx;
+-            model.ctxs.emplace_back(ctx);
++            whisper_adopt_handle<ggml_context *, ggml_free>(model.ctxs, context_owner.release());
+ 
+             return ctx;
+         }
+@@ -1757,7 +1758,11 @@
+             /*.no_alloc   =*/ true,
+         };
+ 
+-        ggml_context * ctx = ggml_init(params);
++        auto context_owner = whisper_own_handle<ggml_context *, ggml_free>(ggml_init(params));
++        ggml_context * ctx = context_owner.get();
++        if (!ctx) {
++            throw std::runtime_error("failed to create temporary ggml context");
++        }
+ 
+         const auto & hparams = model.hparams;
+ 
+@@ -1864,7 +1869,6 @@
+             layer.cross_attn_ln_1_b = create_tensor(ASR_TENSOR_ATTN_OUT_BIAS, ASR_SYSTEM_CROSS, ggml_new_tensor_1d(ctx, GGML_TYPE_F32, n_text_state), i);
+         }
+ 
+-        ggml_free(ctx);
+     }
+ 
+     // allocate tensors in the backend buffers
+@@ -1872,12 +1876,14 @@
+         ggml_backend_buffer_type_t buft = p.first;
+         ggml_context * ctx = p.second;
+         ggml_backend_buffer_t buf = ggml_backend_alloc_ctx_tensors_from_buft(ctx, buft);
+-        if (buf) {
+-            model.buffers.emplace_back(buf);
+-
+-            size_t size_main = ggml_backend_buffer_get_size(buf);
+-            WHISPER_LOG_INFO("%s: %12s total size = %8.2f MB\n", __func__, ggml_backend_buffer_name(buf), size_main / 1e6);
+-        }
++        if (!buf) {
++            WHISPER_LOG_ERROR("%s: failed to allocate model backend buffer\n", __func__);
++            return false;
++        }
++        whisper_adopt_handle<ggml_backend_buffer_t, ggml_backend_buffer_free>(model.buffers, buf);
++
++        size_t size_main = ggml_backend_buffer_get_size(buf);
++        WHISPER_LOG_INFO("%s: %12s total size = %8.2f MB\n", __func__, ggml_backend_buffer_name(buf), size_main / 1e6);
+     }
+ 
+     // load weights
+@@ -3738,7 +3744,7 @@
+     return result;
+ }
+ 
+-struct whisper_context * whisper_init_from_file_with_params_no_state(const char * path_model, struct whisper_context_params params) {
++struct whisper_context * whisper_init_from_file_with_params_no_state(const char * path_model, struct whisper_context_params params) try {
+     WHISPER_LOG_INFO("%s: loading model from '%s'\n", __func__, path_model);
+ #ifdef _MSC_VER
+     // Convert UTF-8 path to wide string (UTF-16) for Windows, resolving character encoding issues.
+@@ -3773,13 +3779,16 @@
+         fin->close();
+     };
+ 
+-    auto ctx = whisper_init_with_params_no_state(&loader, params);
+-
+-    if (ctx) {
+-        ctx->path_model = path_model;
+-    }
+-
+-    return ctx;
++    auto owner = whisper_own_handle<whisper_context *, whisper_free>(whisper_init_with_params_no_state(&loader, params));
++
++    if (owner) {
++        owner->path_model = path_model;
++    }
++
++    return owner.release();
++} catch (...) {
++    // File/path allocation failure must not leak the loaded model or escape C.
++    return nullptr;
+ }
+ 
+ struct whisper_context * whisper_init_from_buffer_with_params_no_state(void * buffer, size_t buffer_size, struct whisper_context_params params) {
+@@ -3822,47 +3831,61 @@
+ }
+ 
+ struct whisper_context * whisper_init_with_params_no_state(struct whisper_model_loader * loader, struct whisper_context_params params) {
+-    ggml_time_init();
+-
+-    if (params.flash_attn && params.dtw_token_timestamps) {
+-        WHISPER_LOG_WARN("%s: dtw_token_timestamps is not supported with flash_attn - disabling\n", __func__);
+-        params.dtw_token_timestamps = false;
+-    }
+-
+-    WHISPER_LOG_INFO("%s: use gpu    = %d\n", __func__, params.use_gpu);
+-    WHISPER_LOG_INFO("%s: flash attn = %d\n", __func__, params.flash_attn);
+-    WHISPER_LOG_INFO("%s: gpu_device = %d\n", __func__, params.gpu_device);
+-    WHISPER_LOG_INFO("%s: dtw        = %d\n", __func__, params.dtw_token_timestamps);
+-    WHISPER_LOG_INFO("%s: devices    = %zu\n", __func__, ggml_backend_dev_count());
+-    WHISPER_LOG_INFO("%s: backends   = %zu\n", __func__, ggml_backend_reg_count());
+-
+-    whisper_context * ctx = new whisper_context;
+-    ctx->params = params;
+-
+-    // A C++ exception escaping this extern "C" function aborts non-C++ callers
+-    // (Rust via whisper-rs, Go via cgo, ...). whisper_model_load can throw
+-    // (std::runtime_error here; vk::SystemError from the Vulkan backend during
+-    // device/buffer allocation), so funnel any throw into the existing
+-    // NULL-return failure path instead of letting it cross the C ABI.
+-    bool model_loaded = false;
++    bool close_attempted = false;
++    auto close_loader = [&]() {
++        if (!close_attempted) {
++            close_attempted = true;
++            loader->close(loader->context);
++        }
++    };
+     try {
+-        model_loaded = whisper_model_load(loader, *ctx);
+-    } catch (const std::exception & e) {
+-        WHISPER_LOG_ERROR("%s: exception during model load: %s\n", __func__, e.what());
++        ggml_time_init();
++
++        if (params.flash_attn && params.dtw_token_timestamps) {
++            WHISPER_LOG_WARN("%s: dtw_token_timestamps is not supported with flash_attn - disabling\n", __func__);
++            params.dtw_token_timestamps = false;
++        }
++
++        WHISPER_LOG_INFO("%s: use gpu    = %d\n", __func__, params.use_gpu);
++        WHISPER_LOG_INFO("%s: flash attn = %d\n", __func__, params.flash_attn);
++        WHISPER_LOG_INFO("%s: gpu_device = %d\n", __func__, params.gpu_device);
++        WHISPER_LOG_INFO("%s: dtw        = %d\n", __func__, params.dtw_token_timestamps);
++        WHISPER_LOG_INFO("%s: devices    = %zu\n", __func__, ggml_backend_dev_count());
++        WHISPER_LOG_INFO("%s: backends   = %zu\n", __func__, ggml_backend_reg_count());
++
++        auto owner = whisper_make_init_owner<whisper_context, whisper_free>();
++        whisper_context * ctx = owner.get();
++        ctx->params = params;
++
++        // A C++ exception escaping this extern "C" function aborts non-C++ callers
++        // (Rust via whisper-rs, Go via cgo, ...). whisper_model_load can throw
++        // (std::runtime_error here; vk::SystemError from the Vulkan backend during
++        // device/buffer allocation), so funnel any throw into the existing
++        // NULL-return failure path instead of letting it cross the C ABI.
++        bool model_loaded = false;
++        try {
++            model_loaded = whisper_model_load(loader, *ctx);
++        } catch (const std::exception & e) {
++            WHISPER_LOG_ERROR("%s: exception during model load: %s\n", __func__, e.what());
++        } catch (...) {
++            WHISPER_LOG_ERROR("%s: unknown exception during model load\n", __func__);
++        }
++
++        if (!model_loaded) {
++            close_loader();
++            WHISPER_LOG_ERROR("%s: failed to load model\n", __func__);
++            return nullptr;
++        }
++
++        close_loader();
++
++        return owner.release();
+     } catch (...) {
+-        WHISPER_LOG_ERROR("%s: unknown exception during model load\n", __func__);
+-    }
+-
+-    if (!model_loaded) {
+-        loader->close(loader->context);
+-        WHISPER_LOG_ERROR("%s: failed to load model\n", __func__);
+-        delete ctx;
++        // The normal owner frees adopted partial model resources. A close that
++        // threw has already been attempted and must not be repeated.
++        try { close_loader(); } catch (...) {}
+         return nullptr;
+     }
+-
+-    loader->close(loader->context);
+-
+-    return ctx;
+ }
+ 
+ struct whisper_context * whisper_init_from_file_with_params(const char * path_model, struct whisper_context_params params) {
