@@ -1,0 +1,56 @@
+{
+  "backendLinked": false,
+  "batchAllocationSeams": [
+    "whisper_checked_malloc allocator argument",
+    "free call boundary"
+  ],
+  "bridgeWhisperSymbols": "real declarations with test implementations; no libwhisper or GGML library",
+  "compiledInputs": {
+    ".build/deps/whisper.cpp/ggml/include/ggml-alloc.h": "d114067f9099c4a0e2bbc0625c676d4894d9cf0ea27168ee072c7de0e71bb51d",
+    ".build/deps/whisper.cpp/ggml/include/ggml-backend.h": "5791edae1fb7622027621d15bc7a160198bd3b75ed8f96d06cb7b85e2b873756",
+    ".build/deps/whisper.cpp/ggml/include/ggml-cpu.h": "316279e004cdeb8e6ef78599acb602bf79a8abdf897fed9fd1914808c1518c6e",
+    ".build/deps/whisper.cpp/ggml/include/ggml.h": "12ee71f99db7db9b353bc02b1fbb57c344ee17c01ac5fb7952b41a637a747ea9",
+    ".build/deps/whisper.cpp/include/whisper.h": "8b1070365d5ddebf45d8a2161d23727c5fd3b312acae68e1e07b4136728b1278",
+    ".build/deps/whisper.cpp/src/whisper-init-ownership.h": "2f5aed9c9fda454332f5d11f2adcd85e4a88b7bbebed64860b5d8b1e02ae2654",
+    ".build/deps/whisper.cpp/src/whisper.cpp": "f0380cd7b9a347f435da6d7d392efc0b0c5ec9f6fb7bf74430ceeffd5ff5b686",
+    "Dependencies.lock.json": "cac3972cc50e125f4faf870f1d0babaa2c660fe5cf41c3166852f44c7a51c3f5",
+    "Patches/whisper.cpp/0001-state-exception-ownership.patch": "fdecbe22ec6f9c5a377cf5e81318183d414e2615e576fb393781546906914b0f",
+    "Patches/whisper.cpp/0002-model-exception-ownership.patch": "8c031d4707b90638bf4f981c4dbda071ecd45af06f5b4728655b87775650c784",
+    "Patches/whisper.cpp/0003-out-of-tree-configured-manifest.patch": "9581bcdf02a27ad7358e0b283e620a50c90bbaa7d1b387b36469b69d3da994c1",
+    "Scripts/prepare-native-contract-inputs.py": "1dc07235e7f8345eb953613dc648d15e1210c8a5eb0e8221857f05df3a99905e",
+    "Scripts/test-native-contracts.sh": "01283b91e9a74d1ca4b095cb16e0c854f5c749e2314e6b98686083b09411f525",
+    "Sources/NativeBridge/WhisperBridge.cpp": "3953eb231c76bb0578a23669add0304a4a7d23a6195730bbd9449f81e3df2acd",
+    "Sources/NativeBridge/include/ClavuneBridge.h": "180330b6f3f973cfb44077c79c11f0609682386972395ee317d7b0d2ca57dae7",
+    "Tests/Native/BridgeContractTests.cpp": "c1e8a50e8f8a36aa8b3113473641a1e609f5fc68937d0b988149a4d4152f6a50",
+    "Tests/Native/NativeContractChecks.h": "12621d71433177dfda87324ee9e26f1a88b42bf0133d23c70adf13be52ec33cb",
+    "Tests/Native/ProductionBatchInputs.json": "c8c35351cb8b60fa97130572b3763e214b782dd018867c3e1cec8861e6d43676",
+    "Tests/Native/ProductionBatchTests.cpp": "dfab230232af4d05311c4cc59a25e0e84d5c2b02e8017c9b3fd71e8b2d208a09"
+  },
+  "fixtureFingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "generatedInputs": {
+    "ClavuneBackendFingerprint.h": "101d42a4fbc26bb46137975293937a53b5d79394db9140d15f3a0cc4392ee9cf",
+    "ClavuneProductionBatch.inc": "005051b9e2816b8c9d6583c51ed94cb552bf5c29745f389f3a66837e94a579dc"
+  },
+  "modelsLoaded": false,
+  "schemaVersion": 1,
+  "sourceCommit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+  "sourceSlices": {
+    "coupled_batch": {
+      "bytes": 2065,
+      "sha256": "005051b9e2816b8c9d6583c51ed94cb552bf5c29745f389f3a66837e94a579dc"
+    },
+    "free": {
+      "bytes": 388,
+      "sha256": "da9fafa9ee37fe5fad5acf64f5f6bbb4fee202f953c2821fbeef4ffab24a908b"
+    },
+    "init": {
+      "bytes": 1347,
+      "sha256": "84dcf71c7d401e28fbd7aaa40e2350c972ddf0568ee94d8bf94652c9b1fe542e"
+    },
+    "structure": {
+      "bytes": 267,
+      "sha256": "33bd6211156f06e8e886e79e51877e98141657584e77d563afba3edb2fc67498"
+    }
+  },
+  "sourceTreeSHA256": "f16fbd481aab0e485e758c85a603292a70ef85b6b3bc3596236f862f44b0c9fc"
+}

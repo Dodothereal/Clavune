@@ -1,17 +1,17 @@
-Clavune correctness repair evidence; no app launch, microphone, real model or benchmark.
-Python command: python3 -m unittest discover -s Tests/Python -v; exit 0; 23 tests; zero failures.
-Swift command: bash Scripts/swift.sh test --jobs 2; exit 0; 48 XCTest cases; zero failures.
-Native helper command: bash Scripts/test-state-ownership.sh; exit 0.
-Native ownership helper matrix passed: state allocation, 30 reserve failures, backend adoption/CPU failure, KV null/throw, 10 malloc failures, overflow, success transfer, 16 state recovery cycles, 12 model failure stages across 8 recovery cycles.
-ASan/UBSan native helper compile and run: exit 0; no sanitizer diagnostics.
-Backend/app build: bash Scripts/build-app.sh; exit 0; two jobs; SwiftPM sandbox enabled.
-Backend link fingerprint: 34fc21182d04a38499e56a654f046ae8e297054923bc9fbddc810c2387bc1438
+Clavune production-bound correctness follow-up; base87a1fb9.
+Swift restored full suite:65 XCTest cases,0 failures; exit0.
+Actual coordinator/service integration:12 tests; Copy/Cut/boundary clipboard tests:8.
+Python suite:27 tests,0 failures; exit0.
+Mutation proof:10 successful mutant builds,10 expected assertion failures, exact source restoration, full-suite success.
+Native helper results from87a1fb9 remain helper-only.
+Exact production batch + actual bridge/fake contracts:normal and ASan/UBSan compile/run exit0.
+Actual upstream state/KV/model/backend/scheduler failure-path integration remains unexecuted.
+Optimized app build/ad-hoc signature/audit:exit0; app not launched.
+Resources:physical packaged-tree Python audit and generated accessor inspection; relocated Swift lookup unexecuted.
 Bundle audit passed: arm64, macOS 14.0 minimum, system-only dynamic dependencies.
 Packaged resources passed: Contents/Resources/Clavune_ClavuneCore.bundle (no development lookup).
 Resource SHA-256 resource-policy.json: 5ad7718f2d9bb4871ceda14cb60ee3e932c38d85f410426884c5cc74e981c9e2
 Resource SHA-256 candidates.json: c9fee868889d4ba5424f22dcda12262dcc643ccbcfe7ddb49a033dfe2a23c379
 Development app: artifacts/Clavune.app
-Backend source verified: 2318 entries; tree SHA-256: f16fbd481aab0e485e758c85a603292a70ef85b6b3bc3596236f862f44b0c9fc
-Release binary contains the exact generated backend fingerprint and the patched upstream revision symbol.
-codesign --verify --deep --strict: exit 0.
-GitHub API: Dodothereal/Clavune; private=true; branch=main.
+Detailed scope:Validation/followup-coverage.md.
+Rejected I/O attempts and accepted command/path strategy:Validation/verification-environment.md.

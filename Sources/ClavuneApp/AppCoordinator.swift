@@ -23,14 +23,16 @@ final class AppCoordinator: ObservableObject {
     @Published private(set) var devices: [AudioInputDevice] = []
     @Published private(set) var metrics: SessionMetrics?
     let policy: ResourcePolicy
-    private let capture = CaptureService()
-    private let inference = InferenceService()
+    private let capture: any CaptureServicing
+    private let inference: any InferenceServicing
+    private let environment: CoordinatorEnvironment
     private var modelURL: URL?
     private var cancellation: DecodeCancellation?
     private var startupGate: CaptureStartupGate?
     private var task: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
-    private var privacyTimer: Timer?
+    private var cancelPrivacyWatchdog: (() -> Void)?
+    private var operationNeedsDrain = false
     private var hotkey: HotkeyService?
     private var panel: RecordingPanelController?
     private var startCompleted = false
@@ -42,34 +44,36 @@ final class AppCoordinator: ObservableObject {
     @Published var developmentShortcut: DevelopmentShortcut = .controlShiftSpace
     @Published private(set) var hotkeyStatus = "Globaler Hotkey ist aus"
 
-    init(policy: ResourcePolicy) {
-        self.policy = policy
+    convenience init(policy: ResourcePolicy) {
+        self.init(policy: policy, capture: CaptureService(), inference: InferenceService(), environment: .live)
+    }
+    init(policy: ResourcePolicy, capture: any CaptureServicing, inference: any InferenceServicing,
+         environment: CoordinatorEnvironment, modelSelection: (candidate: ModelCandidate, url: URL)? = nil) {
+        self.policy = policy; self.capture = capture; self.inference = inference; self.environment = environment
+        model = modelSelection?.candidate; modelURL = modelSelection?.url
         refreshDevices()
-        let center = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.cancel() }
-            })
+        if let center = environment.workspaceNotifications {
+            for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+                observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    Task { @MainActor in self?.cancel() }
+                })
+            }
         }
     }
-    var busy: Bool { operationPending || closePending || importAdmission.isHeld || session.phase.isBusy }
+    var busy: Bool { quitRequested || operationPending || closePending || importAdmission.isHeld || session.phase.isBusy }
     var canStart: Bool { !busy && model != nil }
     func attachPanel(_ panel: RecordingPanelController) { self.panel = panel }
-    func refreshDevices() { devices = AudioDeviceRegistry.inputs() }
+    func refreshDevices() { devices = environment.inputDevices() }
 
     func importModel() {
         guard !busy, let admission = importAdmission.begin() else { return }
         let generation = cancellationGeneration
-        let picker = NSOpenPanel()
-        picker.title = "Whisper-Modell bewusst importieren"
-        picker.message = "Eine geprüfte Kopie wird im Clavune-Modellordner gespeichert. Kein Audio wird übertragen. Die Qualitätsprüfung dieser Kandidaten steht noch aus."
-        picker.canChooseDirectories = false; picker.allowsMultipleSelection = false
-        guard picker.runModal() == .OK, let selected = picker.url,
+        guard let selected = environment.chooseModel(),
               importAdmission.permits(admission), generation == cancellationGeneration,
               !closePending, !session.phase.isBusy else {
             importAdmission.finish(admission); return
         }
-        operationPending = true; modelStatus = "Modell wird lokal geprüft …"
+        operationPending = true; operationNeedsDrain = true; modelStatus = "Modell wird lokal geprüft …"
         task = Task {
             defer {
                 if Task.isCancelled || generation != cancellationGeneration {
@@ -105,10 +109,10 @@ final class AppCoordinator: ObservableObject {
     }
     func start() {
         guard canStart, let model, let modelURL else { return }
-        guard !IsSecureEventInputEnabled() else { message = "Secure Input ist aktiv. Aufnahme bleibt geschlossen."; return }
+        guard !environment.secureInputEnabled() else { message = "Secure Input ist aktiv. Aufnahme bleibt geschlossen."; return }
         let id: UUID
         do {
-            let admitted = try session.begin(preparing: { try DecodeCancellation() })
+            let admitted = try session.begin(preparing: environment.makeCancellation)
             id = admitted.id; cancellation = admitted.resource
         }
         catch {
@@ -116,12 +120,12 @@ final class AppCoordinator: ObservableObject {
             message = failure.localizedDescription
             return
         }
-        operationPending = true
+        operationPending = true; operationNeedsDrain = false
         let authorization = CaptureStartupGate()
         startupGate = authorization
         startCompleted = false; firstSamplePending = false
         editedText = ""; elapsed = 0; level = 0
-        metrics = SessionMetrics(session: id, requestedStart: mach_absolute_time())
+        metrics = SessionMetrics(session: id, requestedStart: environment.nowHostTime())
         message = "Mikrofon geschlossen; Modell und Berechtigung werden vorbereitet …"
         panel?.show()
         let selectedUID = deviceUID
@@ -130,16 +134,20 @@ final class AppCoordinator: ObservableObject {
         task = Task {
             defer { finishOperation() }
             do {
+                guard session.id == id, session.phase == .preparing, !quitRequested, !Task.isCancelled else {
+                    throw DictationError.cancelled
+                }
                 let granted: Bool
-                switch AVCaptureDevice.authorizationStatus(for: .audio) {
+                switch environment.permissionStatus() {
                 case .authorized: granted = true
-                case .notDetermined: granted = await AVCaptureDevice.requestAccess(for: .audio)
+                case .notDetermined: granted = await environment.requestPermission()
                 default: granted = false
                 }
                 guard granted else { throw DictationError.permissionDenied }
-                guard session.id == id, !Task.isCancelled else { throw DictationError.cancelled }
+                guard session.id == id, session.phase == .preparing, !quitRequested, !Task.isCancelled else { throw DictationError.cancelled }
+                operationNeedsDrain = true // Permission waiting above owns no capture/model resource.
                 let warm = try await inference.load(url: modelURL, candidate: model)
-                guard session.id == id, !Task.isCancelled else { throw DictationError.cancelled }
+                guard session.id == id, !quitRequested, !Task.isCancelled else { throw DictationError.cancelled }
                 metrics?.modelWarm = warm.warm; metrics?.modelLoadSeconds = warm.seconds
                 refreshDevices()
                 let device: AudioInputDevice?
@@ -149,7 +157,7 @@ final class AppCoordinator: ObservableObject {
                     device = found
                 }
                 try authorization.check {
-                    AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && !IsSecureEventInputEnabled()
+                    environment.permissionStatus() == .authorized && !environment.secureInputEnabled()
                 }
                 message = "Mikrofon wird gestartet; noch keine nutzbaren Samples bestätigt …"
                 microphone.requestStart(id)
@@ -175,7 +183,7 @@ final class AppCoordinator: ObservableObject {
                             self?.failed(error, id: id)
                         }
                     })
-                guard session.id == id, session.phase == .preparing, !Task.isCancelled else {
+                guard session.id == id, session.phase == .preparing, !quitRequested, !Task.isCancelled else {
                     authorization.invalidate()
                     await capture.cancel(session: id)
                     microphone.acknowledgeClosed(id)
@@ -192,13 +200,13 @@ final class AppCoordinator: ObservableObject {
         }
     }
     func stop() {
-        let requestedStop = mach_absolute_time()
+        let requestedStop = environment.nowHostTime()
         guard let id = session.id else { return }
         if session.phase == .preparing { cancel(); return }
         guard session.stopping(id), let cancellation else { return }
         let request = CaptureStopRequest(session: id, cutoffHostTime: requestedStop)
         microphone.requestClose(id)
-        operationPending = true
+        operationPending = true; operationNeedsDrain = true
         metrics?.requestedStop = request.cutoffHostTime
         message = "Aufnahmeende wird abgegrenzt …"
         let mode = language
@@ -207,7 +215,7 @@ final class AppCoordinator: ObservableObject {
             do {
                 let audio = try await capture.stop(request)
                 microphone.acknowledgeClosed(id)
-                guard session.id == id, !Task.isCancelled else { throw DictationError.cancelled }
+                guard session.id == id, !quitRequested, !Task.isCancelled else { throw DictationError.cancelled }
                 metrics?.firstSample = audio.firstHostTime
                 metrics?.captureClosed = audio.closedHostTime; metrics?.sourceSampleRate = audio.nativeRate
                 metrics?.frames16k = audio.pcm.samples.count
@@ -215,8 +223,8 @@ final class AppCoordinator: ObservableObject {
                 level = 0; message = "Mikrofon geschlossen. Lokale Transkription läuft …"
                 let result = try await inference.transcribe(audio.pcm, language: mode,
                     cancellation: cancellation, policy: policy)
-                guard session.id == id, !Task.isCancelled else { throw DictationError.cancelled }
-                metrics?.finalText = mach_absolute_time(); metrics?.decodeSeconds = result.decodeSeconds
+                guard session.id == id, !quitRequested, !Task.isCancelled else { throw DictationError.cancelled }
+                metrics?.finalText = environment.nowHostTime(); metrics?.decodeSeconds = result.decodeSeconds
                 session.result(result.text, session: id)
                 editedText = result.text
                 message = result.text.isEmpty ? "Kein Text erkannt. Mikrofon geschlossen." : "Text bereit zum Prüfen. Mikrofon geschlossen."
@@ -252,7 +260,7 @@ final class AppCoordinator: ObservableObject {
         }
     }
     private func finishOperation() {
-        operationPending = false; task = nil
+        operationPending = false; operationNeedsDrain = false; task = nil
         if session.phase == .cancelled, !closePending {
             message = "Abgebrochen. Mikrofon geschlossen."
         }
@@ -279,10 +287,11 @@ final class AppCoordinator: ObservableObject {
     }
     func unload() {
         guard !busy else { return }
-        operationPending = true
-        Task {
+        operationPending = true; operationNeedsDrain = true
+        task = Task {
+            defer { finishOperation() }
             await inference.unload()
-            operationPending = false; message = "Modell aus dem Arbeitsspeicher entladen."
+            message = "Modell aus dem Arbeitsspeicher entladen."
         }
     }
     func configureHotkey() {
@@ -291,7 +300,7 @@ final class AppCoordinator: ObservableObject {
         do {
             hotkey = try HotkeyService(shortcut: developmentShortcut) { [weak self] down in
                 guard let self else { return }
-                if IsSecureEventInputEnabled() { self.cancel(); return }
+                if environment.secureInputEnabled() { self.cancel(); return }
                 if self.holdToTalk {
                     if down { self.start() } else { self.stop() }
                 } else if down {
@@ -305,22 +314,22 @@ final class AppCoordinator: ObservableObject {
     }
     private func startPrivacyWatchdog() {
         stopPrivacyWatchdog()
-        privacyTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.session.phase.isBusy else { return }
-                let permission = AVCaptureDevice.authorizationStatus(for: .audio)
-                if IsSecureEventInputEnabled() || permission == .denied || permission == .restricted ||
-                    (self.session.phase != .preparing && permission != .authorized) {
-                    self.cancel()
-                }
+        cancelPrivacyWatchdog = environment.makeWatchdog { [weak self] in
+            guard let self, self.session.phase.isBusy else { return }
+            let permission = self.environment.permissionStatus()
+            if self.environment.secureInputEnabled() || permission == .denied || permission == .restricted ||
+                (self.session.phase != .preparing && permission != .authorized) {
+                self.cancel()
             }
         }
     }
-    private func stopPrivacyWatchdog() { privacyTimer?.invalidate(); privacyTimer = nil }
+    private func stopPrivacyWatchdog() { cancelPrivacyWatchdog?(); cancelPrivacyWatchdog = nil }
     func quit() {
         guard !quitRequested else { return }
         quitRequested = true
-        let pendingOperation = task
+        // Resource-free permission waiting must not make Quit depend on a user answer.
+        // The main-actor phase changes before the first resource-owning await.
+        let pendingOperation = operationNeedsDrain ? task : nil
         cancel(); hotkey?.unregister()
         Task {
             await capture.cancel(session: nil)
@@ -328,7 +337,7 @@ final class AppCoordinator: ObservableObject {
             // Await that cleanup (or an in-flight decoder) before terminating the process.
             await pendingOperation?.value
             await inference.unload()
-            NSApp.terminate(nil)
+            environment.terminate()
         }
     }
 }

@@ -16,7 +16,7 @@ Build and tests: [Docs/BUILD.md](Docs/BUILD.md). Current evidence and outstandin
 
 ## Current limits
 
-The app compiles and a local ad-hoc signed development bundle passes architecture/dependency checks. Sixteen deterministic tests pass. No microphone session, real-model transcription, quality benchmark, real target insertion, macOS 14 runtime test or clean-Mac installation has been performed. This is not a notarized public release.
+The app compiles and a local ad-hoc signed development bundle passes architecture/dependency checks. Deterministic test results and their exact scope are recorded in [Validation/checkpoint.json](Validation/checkpoint.json) and the [correctness issue ledger](Validation/correctness-issue-ledger.md). No microphone session, real-model transcription, quality benchmark, real target insertion, macOS 14 runtime test or clean-Mac installation has been performed. This is not a notarized public release.
 
 The development session limit is 120 seconds. An unconfirmed endpoint, stop-queue race, overflow, device gap or limit produces an error. Model selection is session-only for now. Hotkey configuration and real-device robustness are still incomplete.
 

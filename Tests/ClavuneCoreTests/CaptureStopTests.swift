@@ -2,6 +2,7 @@ import AVFAudio
 import XCTest
 @testable import ClavuneCore
 
+/// Primitive endpoint/conversion composition only; service/coordinator wiring is tested separately.
 final class CaptureStopTests: XCTestCase {
     func testDelayedTaskPreservesRequestCutoffAndExcludesPostRequestSignalFromPCM() async throws {
         let session = UUID()

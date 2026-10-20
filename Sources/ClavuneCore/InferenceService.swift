@@ -17,9 +17,16 @@ public struct TranscriptionResult: Sendable {
     public let decodeSeconds: Double
 }
 
+public protocol InferenceServicing: Sendable {
+    func load(url: URL, candidate: ModelCandidate) async throws -> (warm: Bool, seconds: Double)
+    func transcribe(_ pcm: SessionPCM, language: LanguageMode,
+                    cancellation: DecodeCancellation, policy: ResourcePolicy) async throws -> TranscriptionResult
+    func unload() async
+}
+
 /// This queue exclusively owns model weights. Blocking C++ does not run on an actor or UI executor.
 /// Caller serializes sessions; each accepted request owns its independent cancellation token.
-public final class InferenceService: @unchecked Sendable {
+public final class InferenceService: InferenceServicing, @unchecked Sendable {
     private let queue = DispatchQueue(label: "org.clavune.inference", qos: .userInitiated)
     private var engine: OpaquePointer?
     private var modelHash: String?

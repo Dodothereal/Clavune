@@ -48,30 +48,35 @@
     "upstreamVersionBannerCaution": "The archive has no .git; ggml CMake banner can inherit the enclosing app commit. Use the locked upstream commit/archive/patches and full-tree proof as source identity."
   },
   "swiftBuild": {
-    "command": "bash Scripts/swift.sh test --jobs 2 (includes Debug app/core build); bash Scripts/build-app.sh (Release)",
-    "exitCode": 0
+    "command": "swift build --configuration release --jobs 2 --build-system swiftbuild with explicit owned-temporary cache/config/security/scratch paths; see Validation/verification-environment.md",
+    "exitCode": 0,
+    "swiftPMSandboxEnabled": true,
+    "appEntryPointExecuted": false
   },
   "tests": {
-    "command": "bash Scripts/swift.sh test --jobs 2",
+    "command": "python3 Scripts/test-regression-sensitivity.py (restored full Swift suite)",
     "exitCode": 0,
-    "count": 48,
+    "count": 65,
     "failures": 0,
-    "scope": "synthetic PCM/cutoff, startup/cancel/state, bounded ingress, meter, isolated named pasteboard, tiny model recovery, shortcut validation, backend marker, isolated insertion policy"
+    "scope": "12 actual AppCoordinator/CaptureService control-flow tests with injected resource/system boundaries; 8 clipboard boundary/action tests; existing core/PCM/model/ingress/policy fixtures"
   },
   "packaging": {
     "command": "bash Scripts/build-app.sh",
     "exitCode": 0,
     "artifact": "artifacts/Clavune.app",
-    "fileBytes": 7670036,
-    "executableBytes": 7656800,
+    "fileBytes": 7727364,
+    "executableBytes": 7714128,
     "signing": "ad-hoc development with Hardened Runtime; audio-input only",
     "bundleAudit": "arm64; minimum macOS 14.0; system-only dynamic dependencies",
     "appLaunched": false,
-    "executableSHA256": "24508e1ecbffb38f7b4c58eb4de21ee926298dbdfcaae3ccbb4cb4d5dfed0e50",
-    "priorBaselineArtifact": "artifacts/baseline-b4c8eac/Clavune.app",
+    "executableSHA256": "49457d854316105569669610c857bb1bdbd8bbae2345035f6dda3559ccea5a7b",
+    "priorBaselineArtifact": "artifacts/checkpoint-87a1fb9/Clavune.app",
     "stagedExclusivePublication": true,
     "signatureVerificationExitCode": 0,
-    "resourceAudit": "packaged tree only; no development lookup"
+    "resourceAudit": "physical packaged-tree Python audit plus exact generated accessor inspection",
+    "relocatedSwiftResourceLookupExecuted": false,
+    "testFixtureMarkersAbsent": true,
+    "generatedReleaseAccessorSHA256": "3cd8855f8bcd653dbf320b97b7063acff1e7e4e578ffb7cd7aa3a5b8d2dcb21f"
   },
   "unmeasured": [
     "microphone hardware endpoint",
@@ -88,19 +93,19 @@
   "repository": "https://github.com/Dodothereal/Clavune",
   "repositoryVisibility": "PRIVATE",
   "review": {
-    "findingsAddressed": "Validation/correctness-issue-ledger.md",
+    "findingsAddressed": "Validation/correctness-issue-ledger.md and Validation/followup-coverage.md",
     "nativeFaultCoverage": "Validation/native-ownership-review.md",
     "crossVerification": "pending independent review of corrected immutable commit",
     "efficiencyRound": "deferred until correctness cross-verification"
   },
-  "checkpoint": "correctness repair; exact revision is the commit containing this file and immutable review metadata",
-  "baselineCommit": "b4c8eac2325d4b128cfbfe8580c7f02716dc8e55",
+  "checkpoint": "production-bound correctness follow-up; exact revision is the commit containing this file",
+  "baselineCommit": "87a1fb975b3681980dd495af8d73fc09db6e8d1b",
   "pythonTests": {
     "command": "python3 -m unittest discover -s Tests/Python -v",
     "exitCode": 0,
-    "count": 23,
+    "count": 27,
     "failures": 0,
-    "scope": "offline source provenance, immutable review export, packaged-only resources, mocked failure-safe packaging"
+    "scope": "offline fetch provenance, immutable staged/failure-safe review ZIP, packaged-only physical-tree resources, mocked app packaging"
   },
   "nativeHelperTests": {
     "command": "bash Scripts/test-state-ownership.sh",
@@ -114,5 +119,30 @@
     ],
     "actualGGMLMetalModelFaultInjection": false
   },
-  "repositoryVerifiedPrivate": true
+  "repositoryVerifiedPrivate": true,
+  "regressionSensitivity": {
+    "command": "python3 Scripts/test-regression-sensitivity.py",
+    "exitCode": 0,
+    "mutants": 10,
+    "expectedAssertionsObserved": 10,
+    "sourceRestored": true,
+    "evidence": "Validation/regression-sensitivity.json",
+    "priorIOAttemptsAccepted": false
+  },
+  "nativeContracts": {
+    "normalCommand": "bash Scripts/test-native-contracts.sh",
+    "normalExitCode": 0,
+    "sanitizedCommand": "bash Scripts/test-native-contracts.sh --sanitize",
+    "sanitizedExitCode": 0,
+    "scope": "exact mechanically extracted production batch init/free plus actual bridge translation unit with fake Whisper entry points",
+    "actualUpstreamStateKVModelGraphExecution": false,
+    "inputs": "Validation/native-contract-inputs.json",
+    "results": "Validation/native-contract-results.txt",
+    "binaries": {
+      "bridge-contract-normal": "5556012908d874303f053ed477fcd138f9aa9128a5dc5dd41b4ac803c34d950e",
+      "bridge-contract-sanitized": "0a5d743aa15d6b2246288ac224980ee9f692bf94bad19d65a05f433b581f7bb8",
+      "production-batch-normal": "e15c4001f3c37a17ceac5f13911dcdf6dfa79daa23419dfe81d1859a598539cb",
+      "production-batch-sanitized": "3f023772103a5cb7e6d392efc3c1b52ae25872da3cf680a8d1510e94a9bb05dd"
+    }
+  }
 }

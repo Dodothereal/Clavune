@@ -36,3 +36,5 @@ Seven isolated Python fixtures cover valid payload hashes/shapes, a missing pack
 ## Root execution evidence
 
 Root ran all seven packaged-resource Python fixtures within the 23-test suite and audited the prior baseline app from its supplied packaged tree without a development lookup. Final corrected bundle evidence is recorded in checkpoint.json.
+
+This evidence is physical-tree validation in Python plus generated-accessor inspection. It is not an executed relocated Swift lookup or a launched app. The follow-up Release artifact was built with the same Swift 6.4 default swiftbuild engine in an owned temporary namespace; its packaged tree is audited independently. Runtime resource lookup on a clean supported Mac remains a release gate.

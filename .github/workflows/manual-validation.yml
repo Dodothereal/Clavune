@@ -14,5 +14,7 @@ jobs:
       - run: python3 -m unittest discover -s Tests/Python -v
       - run: bash Scripts/build-backend.sh
       - run: bash Scripts/test-state-ownership.sh
+      - run: bash Scripts/test-native-contracts.sh
+      - run: bash Scripts/test-native-contracts.sh --sanitize
       - run: bash Scripts/swift.sh test --jobs 2
       - run: bash Scripts/build-app.sh

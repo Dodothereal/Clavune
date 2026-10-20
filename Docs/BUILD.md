@@ -29,6 +29,8 @@ Additional deterministic checks:
 
     python3 -m unittest discover -s Tests/Python -v
     bash Scripts/test-state-ownership.sh
+    bash Scripts/test-native-contracts.sh
+    bash Scripts/test-native-contracts.sh --sanitize
 
 The native runner uses the installed production ownership helpers with counting fake resources and controlled allocation failures. It does not load a model or inject faults into actual GGML/Metal APIs. See Validation/native-ownership-review.md for the exact distinction. Clipboard tests use unique named pasteboards and never the general clipboard. Model tests use tiny synthetic hash fixtures.
 
@@ -39,3 +41,5 @@ Prepare a read-only review ZIP from a committed revision:
     python3 Scripts/prepare-review.py --commit HEAD
 
 Both membership and bytes are read from that immutable commit tree, independent of the current index. Private/build/audio/model paths and personal absolute paths are refused.
+
+Production coordinator/service integration, exact-source batch and bridge/fake contracts, remaining hardware coverage and deliberate mutation evidence are described in Validation/followup-coverage.md. Scripts/test-regression-sensitivity.py temporarily changes one source site at a time and restores exact bytes in finally blocks; run it only with exclusive source ownership. It retains ignored logs/binary fingerprints and uses an owned temporary build namespace to avoid the observed project-checkpoint/SQLite interaction described in Validation/verification-environment.md. Normal SwiftPM sandboxing remains enabled.

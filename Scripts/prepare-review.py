@@ -1,9 +1,15 @@
 """Create a read-only ZIP entirely from one immutable Git commit tree."""
 import argparse
+import ctypes
+import errno
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
+import shutil
 import subprocess
+import sys
+import tempfile
 import zipfile
 
 
@@ -40,27 +46,57 @@ def committed_payloads(root, revision):
     return commit, payloads, blobs
 
 
-def prepare_review(root, revision="HEAD"):
+def _publish_exclusive(staged, destination):
+    """Publish on the same macOS filesystem without replacing any existing entry."""
+    if sys.platform != "darwin":
+        raise OSError("Atomic review publication requires macOS.")
+    libc = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True)
+    rename = libc.renamex_np
+    rename.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+    rename.restype = ctypes.c_int
+    # RENAME_EXCL = 0x4; never replace it with an exists/rename race.
+    if rename(os.fsencode(staged), os.fsencode(destination), 0x4) != 0:
+        code = ctypes.get_errno()
+        if code == errno.EEXIST:
+            raise FileExistsError(code, "Existing review bundle preserved.", str(destination))
+        raise OSError(code, os.strerror(code), str(destination))
+
+
+def prepare_review(root, revision="HEAD", *, publish=None, zip_factory=None):
     root = Path(root).resolve()
     commit, payloads, blobs = committed_payloads(root, revision)
     out = root / "artifacts" / ("Clavune-review-" + commit[:12] + ".zip")
+    if out.parent.is_symlink():
+        raise ReviewSnapshotError("Artifact directory must not be a symlink.")
     out.parent.mkdir(exist_ok=True)
-    if out.exists():
+    if out.exists() or out.is_symlink():
         raise ReviewSnapshotError("Existing review bundle preserved.")
     metadata = {
         "commit": commit, "repository": "https://github.com/Dodothereal/Clavune",
         "visibility": "private", "releaseApproved": False, "files": blobs,
     }
-    with zipfile.ZipFile(out, "x", compression=zipfile.ZIP_DEFLATED) as archive:
-        for name, content in list(payloads.items()) + [
-                ("REVIEW_COMMIT.json", json.dumps(metadata, sort_keys=True, indent=2).encode())]:
-            info = zipfile.ZipInfo(name)
-            info.create_system = 3
-            info.external_attr = 0o100444 << 16
-            info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, content)
-    out.chmod(0o444)
-    return out, commit
+    publisher = publish if publish is not None else _publish_exclusive
+    make_zip = zip_factory if zip_factory is not None else zipfile.ZipFile
+    staging = Path(tempfile.mkdtemp(prefix=".Clavune-review-stage-", dir=out.parent))
+    staged_archive = staging / out.name
+    try:
+        with make_zip(staged_archive, "x", compression=zipfile.ZIP_DEFLATED) as archive:
+            for name, content in list(payloads.items()) + [
+                    ("REVIEW_COMMIT.json", json.dumps(metadata, sort_keys=True, indent=2).encode())]:
+                info = zipfile.ZipInfo(name)
+                info.create_system = 3
+                info.external_attr = 0o100444 << 16
+                info.compress_type = zipfile.ZIP_DEFLATED
+                archive.writestr(info, content)
+        staged_archive.chmod(0o444)
+        publisher(staged_archive, out)
+        return out, commit
+    finally:
+        # Clean only this invocation's staging container, never the destination.
+        if staging.is_symlink():
+            staging.unlink()
+        elif staging.exists():
+            shutil.rmtree(staging)
 
 
 def main():

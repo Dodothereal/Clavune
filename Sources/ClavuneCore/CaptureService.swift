@@ -58,35 +58,95 @@ private final class Ingress: @unchecked Sendable {
     deinit { ow_ring_destroy(pointer) }
 }
 
+public protocol CaptureServicing: CaptureStopping {
+    func start(session: UUID, deviceID: AudioDeviceID?, channel: Int, policy: ResourcePolicy,
+               authorization: CaptureStartupGate, onFirstSample: @escaping @Sendable () -> Void,
+               onProgress: @escaping @Sendable (Double, Float) -> Void,
+               onFailure: @escaping @Sendable (DictationError) -> Void) async throws
+    func cancel(session: UUID?) async
+}
+
+/// Engine/pump resources only. Admission, privacy and queue delivery live in CaptureService.
+/// Every implementation must make shutdown idempotent; all calls run serially on the control queue.
+protocol CaptureRunning: AnyObject {
+    var id: UUID { get }
+    var onFinished: (() -> Void)? { get set }
+    func prepare() throws
+    func start() throws
+    func beginPumping()
+    func stop(cutoff: UInt64, completion: CheckedContinuation<CapturedAudio, Error>)
+    func shutdown()
+    func abort(_ error: DictationError)
+}
+
+struct CaptureRunConfiguration {
+    let id: UUID
+    let queue: DispatchQueue
+    let deviceID: AudioDeviceID?
+    let channel: Int
+    let policy: ResourcePolicy
+    let onFirst: @Sendable () -> Void
+    let onProgress: @Sendable (Double, Float) -> Void
+    let onFailure: @Sendable (DictationError) -> Void
+}
+
 /// All AVAudioEngine lifecycle work and conversion is serialized on queue.
 /// The callback owns only its ingress reference; borrowed framework buffers never escape it.
-public final class CaptureService: CaptureStopping, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "org.clavune.capture", qos: .userInitiated)
-    private var active: CaptureSession?
-    public init() {}
+public final class CaptureService: CaptureServicing, @unchecked Sendable {
+    private let queue: DispatchQueue
+    private let enqueue: @Sendable (@escaping @Sendable () -> Void) -> Void
+    private let privacyAllowsCapture: @Sendable () -> Bool
+    private let makeRun: @Sendable (CaptureRunConfiguration) throws -> any CaptureRunning
+    private var active: (any CaptureRunning)?
+    public convenience init() {
+        self.init(queue: DispatchQueue(label: "org.clavune.capture", qos: .userInitiated),
+                  privacyAllowsCapture: {
+                      AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && !IsSecureEventInputEnabled()
+                  }, makeRun: { configuration in
+                      try CaptureSession(id: configuration.id, queue: configuration.queue,
+                          deviceID: configuration.deviceID, channel: configuration.channel,
+                          policy: configuration.policy, onFirst: configuration.onFirst,
+                          onProgress: configuration.onProgress, onFailure: configuration.onFailure)
+                  })
+    }
+    /// Internal composition seam: tests replace resources/delivery, never the service algorithm.
+    init(queue: DispatchQueue,
+         enqueue: (@Sendable (@escaping @Sendable () -> Void) -> Void)? = nil,
+         privacyAllowsCapture: @escaping @Sendable () -> Bool,
+         makeRun: @escaping @Sendable (CaptureRunConfiguration) throws -> any CaptureRunning) {
+        self.queue = queue
+        self.enqueue = enqueue ?? { work in queue.async(execute: work) }
+        self.privacyAllowsCapture = privacyAllowsCapture; self.makeRun = makeRun
+    }
     public func start(session: UUID, deviceID: AudioDeviceID?, channel: Int, policy: ResourcePolicy,
                       authorization: CaptureStartupGate,
                       onFirstSample: @escaping @Sendable () -> Void,
                       onProgress: @escaping @Sendable (Double, Float) -> Void,
                       onFailure: @escaping @Sendable (DictationError) -> Void) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            queue.async {
+            enqueue {
                 guard self.active == nil else { continuation.resume(throwing: DictationError.busy); return }
+                var acquired: (any CaptureRunning)?
                 do {
-                    try authorization.check {
-                        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && !IsSecureEventInputEnabled()
+                    try authorization.check(privacyAllowsCapture: self.privacyAllowsCapture)
+                    let run = try self.makeRun(CaptureRunConfiguration(id: session, queue: self.queue,
+                        deviceID: deviceID, channel: channel, policy: policy, onFirst: onFirstSample,
+                        onProgress: onProgress, onFailure: onFailure))
+                    acquired = run; self.active = run
+                    run.onFinished = { [weak owner = self, weak run] in
+                        if let run, owner?.active === run { owner?.active = nil }
                     }
-                    let run = try CaptureSession(id: session, queue: self.queue, deviceID: deviceID,
-                        channel: channel, policy: policy, onFirst: onFirstSample,
-                        onProgress: onProgress, onFailure: onFailure)
-                    self.active = run
-                    run.onFinished = { [weak owner = self] in
-                        if owner?.active?.id == session { owner?.active = nil }
-                    }
-                    try run.start(authorization: authorization)
+                    try authorization.check(privacyAllowsCapture: self.privacyAllowsCapture)
+                    try run.prepare()
+                    guard self.active === run else { throw DictationError.audioUnavailable }
+                    try authorization.start(privacyAllowsCapture: self.privacyAllowsCapture,
+                                            open: { try run.start() }, close: { run.shutdown() })
+                    guard self.active === run else { throw DictationError.audioUnavailable }
+                    run.beginPumping()
                     continuation.resume()
                 } catch {
-                    self.active?.shutdown(); self.active = nil
+                    acquired?.shutdown()
+                    if let acquired, self.active === acquired { self.active = nil }
                     continuation.resume(throwing: (error as? DictationError) ?? DictationError.audioUnavailable)
                 }
             }
@@ -94,7 +154,7 @@ public final class CaptureService: CaptureStopping, @unchecked Sendable {
     }
     public func stop(_ request: CaptureStopRequest) async throws -> CapturedAudio {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CapturedAudio, Error>) in
-            queue.async {
+            enqueue {
                 guard let active = self.active, active.id == request.session else {
                     continuation.resume(throwing: DictationError.noAudio); return
                 }
@@ -104,7 +164,7 @@ public final class CaptureService: CaptureStopping, @unchecked Sendable {
     }
     public func cancel(session: UUID?) async {
         await withCheckedContinuation { continuation in
-            queue.async {
+            enqueue {
                 if let active = self.active, session == nil || active.id == session {
                     active.abort(.cancelled)
                 }
@@ -114,7 +174,7 @@ public final class CaptureService: CaptureStopping, @unchecked Sendable {
     }
 }
 
-private final class CaptureSession {
+private final class CaptureSession: CaptureRunning {
     let id: UUID
     let engine = AVAudioEngine()
     let queue: DispatchQueue
@@ -182,13 +242,12 @@ private final class CaptureSession {
         scratch.deinitialize(count: policy.maxNativeBlockFrames); scratch.deallocate()
         if let configurationObserver { NotificationCenter.default.removeObserver(configurationObserver) }
     }
-    func start(authorization: CaptureStartupGate) throws {
-        let allowed = { AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && !IsSecureEventInputEnabled() }
-        try authorization.check(privacyAllowsCapture: allowed)
+    func prepare() {
         startSeconds = AVAudioTime.seconds(forHostTime: mach_absolute_time())
         engine.prepare()
-        try authorization.start(privacyAllowsCapture: allowed, open: { try engine.start() },
-                                close: { shutdown() })
+    }
+    func start() throws { try engine.start() }
+    func beginPumping() {
         let clock = DispatchSource.makeTimerSource(queue: queue)
         clock.schedule(deadline: .now(), repeating: .milliseconds(policy.pumpIntervalMilliseconds),
                        leeway: .milliseconds(2))

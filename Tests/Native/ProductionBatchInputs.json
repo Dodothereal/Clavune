@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+  "archiveSHA256": "645445da884df6dbd52b30f82d7be7c01d1767c938714e477e786b88d529e9f4",
+  "files": {
+    "Dependencies.lock.json": "cac3972cc50e125f4faf870f1d0babaa2c660fe5cf41c3166852f44c7a51c3f5",
+    ".build/deps/whisper.cpp/src/whisper.cpp": "f0380cd7b9a347f435da6d7d392efc0b0c5ec9f6fb7bf74430ceeffd5ff5b686",
+    ".build/deps/whisper.cpp/src/whisper-init-ownership.h": "2f5aed9c9fda454332f5d11f2adcd85e4a88b7bbebed64860b5d8b1e02ae2654",
+    ".build/deps/whisper.cpp/include/whisper.h": "8b1070365d5ddebf45d8a2161d23727c5fd3b312acae68e1e07b4136728b1278",
+    ".build/deps/whisper.cpp/ggml/include/ggml.h": "12ee71f99db7db9b353bc02b1fbb57c344ee17c01ac5fb7952b41a637a747ea9",
+    ".build/deps/whisper.cpp/ggml/include/ggml-cpu.h": "316279e004cdeb8e6ef78599acb602bf79a8abdf897fed9fd1914808c1518c6e",
+    ".build/deps/whisper.cpp/ggml/include/ggml-backend.h": "5791edae1fb7622027621d15bc7a160198bd3b75ed8f96d06cb7b85e2b873756",
+    ".build/deps/whisper.cpp/ggml/include/ggml-alloc.h": "d114067f9099c4a0e2bbc0625c676d4894d9cf0ea27168ee072c7de0e71bb51d"
+  },
+  "slices": {
+    "structure": {"bytes": 267, "sha256": "33bd6211156f06e8e886e79e51877e98141657584e77d563afba3edb2fc67498"},
+    "init": {"bytes": 1347, "sha256": "84dcf71c7d401e28fbd7aaa40e2350c972ddf0568ee94d8bf94652c9b1fe542e"},
+    "free": {"bytes": 388, "sha256": "da9fafa9ee37fe5fad5acf64f5f6bbb4fee202f953c2821fbeef4ffab24a908b"},
+    "coupled_batch": {"bytes": 2065, "sha256": "005051b9e2816b8c9d6583c51ed94cb552bf5c29745f389f3a66837e94a579dc"}
+  }
+}

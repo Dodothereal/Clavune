@@ -33,7 +33,7 @@ let package = Package(
         .target(name: "ClavuneCore", dependencies: ["NativeBridge"],
                 resources: [.copy("Resources")]),
         .executableTarget(name: "ClavuneApp", dependencies: ["ClavuneCore"]),
-        .testTarget(name: "ClavuneCoreTests", dependencies: ["ClavuneCore", "NativeBridge"])
+        .testTarget(name: "ClavuneCoreTests", dependencies: ["ClavuneCore", "NativeBridge", "ClavuneApp"])
     ],
     cxxLanguageStandard: .cxx17
 )

@@ -1,6 +1,6 @@
 # Clavune status
 
-2026-10-20 — corrected source/build checkpoint, awaiting exact-commit cross-verification. Efficiency work remains deferred.
+2026-10-20 — production-bound correctness follow-up, awaiting exact-commit cross-verification. Efficiency work remains deferred.
 
 ## Verified implementation
 
@@ -14,17 +14,23 @@
 
 ## Correctness validation
 
-- 48 XCTest cases, zero failures: synthetic PCM/cutoff, startup/cancel ordering, state, ingress chunk/timestamp/capacity, meter, named pasteboard, tiny model recovery, shortcuts and insertion-policy fixtures. Exact sanitized output: Validation/synthetic-tests.txt.
-- 23 offline Python tests, zero failures: fetch provenance, immutable review snapshot, packaged-only resources and failure-safe app packaging.
+- 65 XCTest cases, zero failures, including 12 actual coordinator/service lifecycle tests and 8 clipboard action/boundary tests: synthetic PCM/cutoff, startup/cancel ordering, state, ingress chunk/timestamp/capacity, meter, named pasteboard, tiny model recovery, shortcuts and insertion-policy fixtures. Exact sanitized output: Validation/synthetic-tests.txt.
+- 27 offline Python tests, zero failures: fetch provenance, immutable review snapshot, packaged-only resources and failure-safe app packaging.
 - Native ownership helper matrix passed both normally and with AddressSanitizer/UndefinedBehaviorSanitizer. Controlled fake native resources and real selected C++ allocation failures exercise production helpers. Actual GGML/Metal/model failure injection remains unexercised; see Validation/native-ownership-review.md.
+- Ten intentional one-site reversions rebuilt and failed their expected test assertions; all source bytes were restored and the full suite passed. Per-command source/binary fingerprints: Validation/regression-sensitivity.json.
+- Exact production batch init/free and actual bridge/fake contracts pass normally and with ASan/UBSan. Actual upstream state/KV/backend/model/graph paths remain unexecuted.
 - Two-job backend and optimized app builds passed. Final bundle is staged, ad-hoc signed with Hardened Runtime/audio-input entitlement, verified and exclusively published under artifacts/Clavune.app. Earlier bundles and dependency trees are preserved under ignored project output.
 - Independent reconstruction verifies the patched source inventory after CMake configuration/build. Archive-and-lock fingerprint and patched revision are checked against the final link. Build metadata and artifact sizes/hashes: Validation/checkpoint.json.
-- Packaged resources pass without a development lookup. The reported resource-path bug was disproved by this Swift 6.4 accessor. Config-only manifest and archive-only relink staleness were not reproduced; Swift wrapper cache behavior remains unchanged.
+- Packaged physical-tree Python audit and generated Swift accessor inspection pass; a relocated Swift runtime lookup was not executed. The reported resource-path bug was disproved by this Swift 6.4 accessor. Config-only manifest and archive-only relink staleness were not reproduced; Swift wrapper cache behavior remains unchanged.
 - Finding-by-finding disposition, including confirmed fixes, conditional limits and untested integrations: Validation/correctness-issue-ledger.md. Read-only review ZIP is generated from immutable committed files only.
 
 ## Unmeasured and remaining
 
-No app launch, real microphone/TCC prompt, user audio, real model load/inference, target-app mutation, substantial benchmark, signed/notarized release or clean-Mac installation ran. Other workloads were not stopped. Initial load averages were about 8. Recognition quality, capture hardware endpoint, latency, CPU, peak/RSS memory and energy are unmeasured; bundle size is not RAM.
+No SwiftUI app launch, real microphone/TCC prompt, user audio, real model load/inference, target-app mutation, substantial benchmark, signed/notarized release or clean-Mac installation ran. Other workloads were not stopped. Initial load averages were about 8. Recognition quality, capture hardware endpoint, latency, CPU, peak/RSS memory and energy are unmeasured; bundle size is not RAM.
+
+Quit now skips resource-free permission waiting, drains admitted resource work and permanently closes admission. Startup checks cancellation before the first permission side effect. Actual coordinator/service tests and mutation sensitivity cover these fixes.
+
+Verification encountered project-local SQLite build I/O errors. Failed runs were rejected; owned temporary build/cache paths succeeded with normal sandboxing, and exact commands/logs remain private. No existing cache or other process was changed. See Validation/verification-environment.md.
 
 Next: independent cross-verification of the corrected commit, then a separate efficiency review. Hardware/permission/route/VoiceOver/Sleep-Wake integration, chosen-model persistence, full shortcut recorder, effective parameter export, real AX fixtures, German/English/code-switching/numbers/negations quality gates and controlled performance runs remain open. Do not promote a default model or quantization before quality gates.
 

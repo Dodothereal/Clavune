@@ -42,13 +42,24 @@ class ReviewSnapshotTests(unittest.TestCase):
         self.git("commit", "-m", "fixture checkpoint")
         return self.git("rev-parse", "HEAD")
 
+    def publish_fixture(self, staged, destination):
+        """Portable exclusive publication fixture; production uses macOS renamex_np."""
+        os.link(staged, destination)
+        staged.unlink()
+
+    def prepare(self, revision="HEAD", **options):
+        return REVIEW.prepare_review(self.root, revision, publish=self.publish_fixture, **options)
+
+    def assert_no_staging(self):
+        self.assertEqual(list((self.root / "artifacts").glob(".Clavune-review-stage-*")), [])
+
     def test_snapshot_membership_and_bytes_ignore_staged_changes(self):
         original = self.commit_initial()
         (self.root / "committed.txt").write_text("staged replacement\n")
         (self.root / "staged-extra.txt").write_text("must not enter snapshot\n")
         self.git("add", "committed.txt", "staged-extra.txt")
         self.git("rm", "--cached", "index-removed.txt")
-        archive, commit = REVIEW.prepare_review(self.root, original)
+        archive, commit = self.prepare(original)
         self.assertEqual(commit, original)
         with zipfile.ZipFile(archive) as snapshot:
             self.assertEqual(set(snapshot.namelist()),
@@ -68,7 +79,7 @@ class ReviewSnapshotTests(unittest.TestCase):
         (self.root / "later.txt").write_text("later revision\n")
         self.git("add", "later.txt")
         self.git("commit", "-m", "later fixture")
-        archive, commit = REVIEW.prepare_review(self.root, original)
+        archive, commit = self.prepare(original)
         self.assertEqual(commit, original)
         with zipfile.ZipFile(archive) as snapshot:
             self.assertNotIn("later.txt", snapshot.namelist())
@@ -82,8 +93,77 @@ class ReviewSnapshotTests(unittest.TestCase):
         self.git("add", ".planning/private.txt")
         self.git("commit", "-m", "unsafe fixture")
         with self.assertRaises(REVIEW.ReviewSnapshotError):
-            REVIEW.prepare_review(self.root)
+            self.prepare()
         self.assertFalse((self.root / "artifacts").exists())
+
+    def test_write_failure_cleans_only_owned_staging_and_allows_retry(self):
+        original = self.commit_initial()
+        artifacts = self.root / "artifacts"
+        artifacts.mkdir()
+        unrelated = artifacts / "unrelated.txt"
+        unrelated.write_text("preserve unrelated artifact\n")
+
+        class FailingWriteZip(zipfile.ZipFile):
+            def writestr(self, *arguments, **keywords):
+                super().writestr(*arguments, **keywords)
+                raise OSError("injected ZIP write failure")
+
+        with self.assertRaisesRegex(OSError, "write failure"):
+            self.prepare(original, zip_factory=FailingWriteZip)
+        self.assertFalse((artifacts / ("Clavune-review-" + original[:12] + ".zip")).exists())
+        self.assert_no_staging()
+        self.assertEqual(unrelated.read_text(), "preserve unrelated artifact\n")
+        archive, commit = self.prepare(original)
+        self.assertEqual(commit, original)
+        with zipfile.ZipFile(archive) as snapshot:
+            self.assertIsNone(snapshot.testzip())
+            self.assertEqual(snapshot.read("committed.txt"), b"committed content\n")
+        self.assert_no_staging()
+
+    def test_close_failure_leaves_no_final_archive_and_allows_retry(self):
+        original = self.commit_initial()
+
+        class FailingCloseZip(zipfile.ZipFile):
+            def close(self):
+                was_open = self.fp is not None
+                super().close()
+                if was_open:
+                    raise OSError("injected ZIP close failure")
+
+        with self.assertRaisesRegex(OSError, "close failure"):
+            self.prepare(original, zip_factory=FailingCloseZip)
+        final = self.root / "artifacts" / ("Clavune-review-" + original[:12] + ".zip")
+        self.assertFalse(final.exists())
+        self.assert_no_staging()
+        archive, _ = self.prepare(original)
+        with zipfile.ZipFile(archive) as snapshot:
+            self.assertEqual(json.loads(snapshot.read("REVIEW_COMMIT.json"))["commit"], original)
+        self.assert_no_staging()
+
+    def test_existing_valid_archive_is_preserved(self):
+        original = self.commit_initial()
+        archive, _ = self.prepare(original)
+        prior_bytes = archive.read_bytes()
+        with self.assertRaises(REVIEW.ReviewSnapshotError):
+            self.prepare(original)
+        self.assertEqual(archive.read_bytes(), prior_bytes)
+        self.assert_no_staging()
+
+    def test_publish_collision_preserves_winner_and_cleans_only_owned_staging(self):
+        original = self.commit_initial()
+
+        def race_winner(staged, destination):
+            with zipfile.ZipFile(destination, "x") as winner:
+                winner.writestr("winner.txt", "already published\n")
+            self.publish_fixture(staged, destination)
+
+        with self.assertRaises(FileExistsError):
+            REVIEW.prepare_review(self.root, original, publish=race_winner)
+        final = self.root / "artifacts" / ("Clavune-review-" + original[:12] + ".zip")
+        with zipfile.ZipFile(final) as snapshot:
+            self.assertEqual(snapshot.namelist(), ["winner.txt"])
+            self.assertEqual(snapshot.read("winner.txt"), b"already published\n")
+        self.assert_no_staging()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,205 @@
+NORMAL: bash Scripts/test-native-contracts.sh; exit 0
+Native contract inputs verified; exact batch source and real bridge inputs recorded.
+Native contract inputs verified; exact batch source and real bridge inputs recorded.
+B01 cycle=0 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=0 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=0 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=0 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=0 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=0 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=0 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=0 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=0 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=0 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=0 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=0 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=0 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=0 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=0 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=0 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=0 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B01 cycle=1 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=1 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=1 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=1 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=1 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=1 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=1 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=1 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=1 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=1 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=1 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=1 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=1 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=1 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=1 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=1 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=1 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B01 cycle=2 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=2 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=2 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=2 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=2 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=2 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=2 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=2 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=2 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=2 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=2 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=2 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=2 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=2 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=2 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=2 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=2 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B01 cycle=3 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=3 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=3 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=3 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=3 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=3 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=3 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=3 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=3 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=3 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=3 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=3 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=3 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=3 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=3 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=3 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=3 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+Exact production batch init/free passed: 10 allocation failures, typed success, empty cleanup, 6 invalid dimensions; 4 cycles.
+R01 creation_failure=1 observed=null contexts_freed=0 live_heap=0
+R01 creation_failure=2 observed=null contexts_freed=0 live_heap=0
+R01 creation_failure=3 observed=null contexts_freed=1 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R03-0 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-1 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-2 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-3 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-4 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-5 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-6 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-7 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-8 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-9 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-10 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-11 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-12 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R04 mode=4 expected_status=3 observed_status=3 state_calls=1 state_frees=0 context_frees=1 live_heap=0
+R04 mode=5 expected_status=3 observed_status=3 state_calls=1 state_frees=0 context_frees=1 live_heap=0
+R04 mode=6 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=7 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=8 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=9 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=10 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=11 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=12 expected_status=1 observed_status=1 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+Actual bridge contract passed with fake Whisper entry points: admission/environment, allocation, cancellation, error cleanup, profile forwarding, copied result lifetimes; no backend/model linked.
+
+ASAN/UBSAN: bash Scripts/test-native-contracts.sh --sanitize; exit 0
+Native contract inputs verified; exact batch source and real bridge inputs recorded.
+Native contract inputs verified; exact batch source and real bridge inputs recorded.
+B01 cycle=0 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=0 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=0 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=0 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=0 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=0 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=0 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=0 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=0 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=0 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=0 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=0 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=0 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=0 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=0 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=0 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=0 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B01 cycle=1 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=1 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=1 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=1 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=1 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=1 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=1 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=1 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=1 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=1 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=1 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=1 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=1 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=1 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=1 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=1 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=1 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B01 cycle=2 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=2 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=2 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=2 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=2 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=2 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=2 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=2 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=2 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=2 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=2 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=2 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=2 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=2 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=2 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=2 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=2 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B01 cycle=3 injected_allocation=0 expected=bad_alloc observed=bad_alloc attempts=1 frees=0 live=0
+B02 cycle=3 injected_allocation=1 expected=bad_alloc observed=bad_alloc attempts=2 frees=1 live=0
+B03 cycle=3 injected_allocation=2 expected=bad_alloc observed=bad_alloc attempts=3 frees=2 live=0
+B04 cycle=3 injected_allocation=3 expected=bad_alloc observed=bad_alloc attempts=4 frees=3 live=0
+B05 cycle=3 injected_allocation=4 expected=bad_alloc observed=bad_alloc attempts=5 frees=4 live=0
+B06 cycle=3 injected_allocation=5 expected=bad_alloc observed=bad_alloc attempts=6 frees=5 live=0
+B07 cycle=3 injected_allocation=6 expected=bad_alloc observed=bad_alloc attempts=7 frees=6 live=0
+B08 cycle=3 injected_allocation=7 expected=bad_alloc observed=bad_alloc attempts=8 frees=7 live=0
+B09 cycle=3 injected_allocation=8 expected=bad_alloc observed=bad_alloc attempts=9 frees=8 live=0
+B10 cycle=3 injected_allocation=9 expected=bad_alloc observed=bad_alloc attempts=10 frees=9 live=0
+B11 cycle=3 typed_success allocations=10 frees=10 live=0
+B12-0 cycle=3 dimensions=0,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-1 cycle=3 dimensions=-1,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-2 cycle=3 dimensions=5,0 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-3 cycle=3 dimensions=5,-1 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-4 cycle=3 dimensions=-2147483648,3 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+B12-5 cycle=3 dimensions=5,-2147483648 expected=bad_alloc observed=bad_alloc attempts=0 live=0
+Exact production batch init/free passed: 10 allocation failures, typed success, empty cleanup, 6 invalid dimensions; 4 cycles.
+R01 creation_failure=1 observed=null contexts_freed=0 live_heap=0
+R01 creation_failure=2 observed=null contexts_freed=0 live_heap=0
+R01 creation_failure=3 observed=null contexts_freed=1 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R02 environment_gate expected_status=3 observed_status=3 state_calls=0 decode_calls=0 live_heap=0
+R03-0 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-1 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-2 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-3 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-4 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-5 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-6 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-7 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-8 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-9 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-10 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-11 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R03-12 admission expected_status=2 observed_status=2 state_calls=0 decode_calls=0 owned_heap=2
+R04 mode=4 expected_status=3 observed_status=3 state_calls=1 state_frees=0 context_frees=1 live_heap=0
+R04 mode=5 expected_status=3 observed_status=3 state_calls=1 state_frees=0 context_frees=1 live_heap=0
+R04 mode=6 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=7 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=8 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=9 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=10 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=11 expected_status=3 observed_status=3 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+R04 mode=12 expected_status=1 observed_status=1 state_calls=1 state_frees=1 context_frees=1 live_heap=0
+Actual bridge contract passed with fake Whisper entry points: admission/environment, allocation, cancellation, error cleanup, profile forwarding, copied result lifetimes; no backend/model linked.

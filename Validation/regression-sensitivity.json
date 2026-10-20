@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "87a1fb975b3681980dd495af8d73fc09db6e8d1b",
+  "command": "python3 Scripts/test-regression-sensitivity.py",
+  "exitCode": 0,
+  "swiftPMSandboxEnabled": true,
+  "buildSystem": "swiftbuild",
+  "effectiveBuildNamespace": "<owned-temporary-build-root>",
+  "sourceRestored": true,
+  "cases": [
+    {
+      "id": "C01-coordinator-resamples-stop",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testStopTimestampTraversesActualCoordinatorAndServiceBeforeDelayedDelivery",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 1,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*\\[.*\\].*\\[1000\\]",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "863e53d4424f976a7200f0d0dc2e5c961534d7376e1b0ceef348ca309cedf521",
+      "testBinarySHA256": [
+        "a610691105d8d9ba1525cf810de69cdff3f290682684315415934ef3ad3369cb"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C02-service-resamples-stop",
+      "source": "Sources/ClavuneCore/CaptureService.swift",
+      "test": "AppCoordinatorIntegrationTests/testStopTimestampTraversesActualCoordinatorAndServiceBeforeDelayedDelivery",
+      "productionSourceSHA256": "56cdca5a736f5d661379540742d152b31c2405bd9c3074868feabeeeaa0c2123",
+      "exitCode": 1,
+      "assertionFailures": 1,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*\\[.*\\].*\\[1000\\]",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "e21f69bf6acb778ddbc077cef92a3f5b1820c50f3830ee7c456e5a23b19c4c69",
+      "testBinarySHA256": [
+        "510be8ad6b41addd987446e7885f4aeb4576c0c49cf269634f3f856faee7dbb4"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C03-coordinator-ignores-raw-review",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testCancelWithEmptyEditedTextClearsActualCoordinatorRawReview",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 2,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*review.*cancelled",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "27f957252ec12532381d78b00f6ad197d4988aee4a206db9036230f6295a011f",
+      "testBinarySHA256": [
+        "24cc6067167bace69cc9a1b9c5e3d5bf6349e1ae576c9484de1b51ba368df210"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C04-service-constructs-before-gate",
+      "source": "Sources/ClavuneCore/CaptureService.swift",
+      "test": "AppCoordinatorIntegrationTests/testCancelAfterServiceEnqueueInvalidatesActualStartupBeforeFactory",
+      "productionSourceSHA256": "56cdca5a736f5d661379540742d152b31c2405bd9c3074868feabeeeaa0c2123",
+      "exitCode": 1,
+      "assertionFailures": 1,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*1.*0",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "2b1419615fcb747c850adf29121ad168609982928ba4bffcc0c55bdbd70d8082",
+      "testBinarySHA256": [
+        "7564bc2c9af081f27028f3db0c72063e2da4a174ed205d45b971d0bf863001a6"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C05-service-opens-without-revalidation",
+      "source": "Sources/ClavuneCore/CaptureService.swift",
+      "test": "AppCoordinatorIntegrationTests/testPrivacyChangeDuringActualServiceOpenClosesWithoutPumping",
+      "productionSourceSHA256": "56cdca5a736f5d661379540742d152b31c2405bd9c3074868feabeeeaa0c2123",
+      "exitCode": 1,
+      "assertionFailures": 4,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*1.*0",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "384e731c5729da87ae61432b5333557387a1c342eabf200167a791f723204ed7",
+      "testBinarySHA256": [
+        "1c3ee1f14f0185df7b486d7afb1d75fec038668a7788c1a3e03c11358b7bb93e"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C06-coordinator-acks-close-early",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testActualCoordinatorRemainsMicClosingUntilServiceAcknowledges",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 2,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*closed.*closing",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "a8c4537ccb0d94914236427844495194bbd24bf805964bb5a7db6811ac0a5ff2",
+      "testBinarySHA256": [
+        "4171fe08733fd8e2c78b70ec9de22d16891dac5362f464c2a8b2ec39c1203d5b"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C07-quit-waits-on-permission",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testQuitCompletesWithUnansweredPermissionAndRejectsLateGrantedReply",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 1,
+      "expectedAssertionPattern": "Asynchronous wait failed:.*permission answer",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "58c2f67fd26dcd23e91c8655751708defd7fe3f5fafd3dc3502de7accc0d4f04",
+      "testBinarySHA256": [
+        "daa99154ff934d16caef9c2690eadae576a79977b6156dace668b09a51c91ee2"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C08-quit-reopens-admission",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testQuitPermanentlyClosesStartAndImportAdmissionDuringDelayedUnload",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 4,
+      "expectedAssertionPattern": "XCTAssert(?:True|False) failed",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "2c97e43ffc2a7932146b5822a879e67c0926b507cb26f7639dee788d1eee4e43",
+      "testBinarySHA256": [
+        "5c4966d26472411c621ad1e80e30a60c97a86c3e5a1186d7cb61c97eb4993df3"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C09-token-after-session-admission",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testCancellationAllocationFailureDoesNotAdmitActualCoordinator",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 2,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*preparing.*idle",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "5af542d132e77704c63499e27bbc36e78cd49300cbf831ce18fe101433a544e0",
+      "testBinarySHA256": [
+        "18c582ca7838768ca41c75b691d6022c2b4ed3970faac993f58453ccb6bbdeb3"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    },
+    {
+      "id": "C10-cancelled-task-requests-permission",
+      "source": "Sources/ClavuneApp/AppCoordinator.swift",
+      "test": "AppCoordinatorIntegrationTests/testCancelBeforeStartupTaskEntryNeverRequestsPermission",
+      "productionSourceSHA256": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+      "exitCode": 1,
+      "assertionFailures": 3,
+      "expectedAssertionPattern": "XCTAssertEqual failed:.*1.*0",
+      "expectedAssertionObserved": true,
+      "killed": true,
+      "sourceRestored": true,
+      "mutantSourceSHA256": "3baca5f5e3eefc76542baf9a3b4f020e16edc0b31a5d38693efd6a2ed2d4e4ff",
+      "testBinarySHA256": [
+        "0fd957c74cf08815b2e2e0b37bfe78546028e0ef1826141bdfed941e633c196f"
+      ],
+      "buildCompletedWithoutReportedErrors": true
+    }
+  ],
+  "restoredSuite": {
+    "count": 65,
+    "failures": 0,
+    "exitCode": 0,
+    "testBinarySHA256": [
+      "8d5240b6c027018fa3d6b708e02e5a1921e749e50a7e199bbd89b3c2f50619bd"
+    ]
+  },
+  "testedSourcesSHA256": {
+    "Sources/ClavuneApp/AppCoordinator.swift": "609e25751154f8ad4ec26c9adb25cd0f682a2d590822d24957d69e57049f5656",
+    "Sources/ClavuneApp/ClavuneApp.swift": "570f84d45272cc9e629f8f0f3453dc9aa271152f0eaf071591082518e71589ef",
+    "Sources/ClavuneApp/CoordinatorEnvironment.swift": "7acd18045f45435f2739ff98c3cbcbd28dc8035ade874c6b7d5422d17a399e63",
+    "Sources/ClavuneApp/HotkeyService.swift": "aabd5638560b408e81abdfb8c2367a04553d8f750b2920ff954b917322fcebf7",
+    "Sources/ClavuneApp/Presentation.swift": "d15dc597fc4725918810ecfbe2b5d43120d0b3ab7bdfd03e4483fd08cb92437a",
+    "Sources/ClavuneApp/ProductIdentity.swift": "f8ebee5773d62a48d62b5a1b00c07cf68bd7d25fbd96f0fa7a0c4d61c5d57a2b",
+    "Sources/ClavuneCore/AudioConversion.swift": "c9a506f293fc932b3d7d8aff79f82d09c0dd79c928e9286a3304da59e7eb0a2a",
+    "Sources/ClavuneCore/CaptureControl.swift": "fe03f3fc3ccd4f403346ad06260d77760c6b3a80f5a6793d111a8830314cf343",
+    "Sources/ClavuneCore/CapturePeakAccumulator.swift": "5c576d9d19ba3610b789b0ea2dea9cc3712dc70f28a5586b01668438e2e91f72",
+    "Sources/ClavuneCore/CaptureService.swift": "56cdca5a736f5d661379540742d152b31c2405bd9c3074868feabeeeaa0c2123",
+    "Sources/ClavuneCore/DevelopmentShortcut.swift": "13266b513f8792ba691cce6209c6d7b06baa14aca8b79bbdc439041660ee9b52",
+    "Sources/ClavuneCore/InferenceService.swift": "9df76dc80fcb6528bd584ba60b77f28c48bd21f01606090c3a257ca79bb0f75d",
+    "Sources/ClavuneCore/InsertionPolicy.swift": "22f6c9bb3d5786a5c0ebbd886304304c86f8ae85bb2aa925e8d798b16f385804",
+    "Sources/ClavuneCore/LocalClipboard.swift": "8a71def86bfcfe6bbc635bb238bc03f3ff78747f8c0fa40cfc0ed2720ee3d6e0",
+    "Sources/ClavuneCore/MicrophoneLifecycle.swift": "378192fb2e68d826624c20fd91faa71577fe9d3060f5bdfd61558b5b9a46f932",
+    "Sources/ClavuneCore/ModelStore.swift": "08aec7178008f06201127e86573974778ff551f570734d0fcd2eb6eed71aa89e",
+    "Sources/ClavuneCore/Policy.swift": "92aceb9096cf772e9bf2ad7cb09118619b1c05b4c8bc8a063942ad41689142e3",
+    "Sources/ClavuneCore/Session.swift": "5b49134ac21bb8ecc3cf6218f5d564c7d2ef95d337dab4bedf3278baaa36dd57",
+    "Sources/NativeBridge/Ingress.cpp": "89cd3092a81083b09a248d59c3b94290462d3a795740598b8d23c3bfc1eb2681",
+    "Sources/NativeBridge/WhisperBridge.cpp": "3953eb231c76bb0578a23669add0304a4a7d23a6195730bbd9449f81e3df2acd",
+    "Sources/NativeBridge/include/ClavuneBridge.h": "180330b6f3f973cfb44077c79c11f0609682386972395ee317d7b0d2ca57dae7",
+    "Tests/ClavuneCoreTests/AppCoordinatorIntegrationTests.swift": "a8bb1235e06116b9cc9e076f826eb338270aee1f82340d9f5fe432e92625c991",
+    "Tests/ClavuneCoreTests/BackendEnvironmentTests.swift": "6b1a780c87e4bfbaa99b2f8ab90e44c8c73aebc689ffec0fd2a17bf4ca55afb4",
+    "Tests/ClavuneCoreTests/CaptureControlTests.swift": "062b1961ad9ca5dbb9dc641021406eaf245659d9ce6d33105fd60dd24d180437",
+    "Tests/ClavuneCoreTests/CapturePeakAccumulatorTests.swift": "e08c2b099293c8d66af43b97325e547d442cd6bdc71891673b4a44f98b5a8306",
+    "Tests/ClavuneCoreTests/CaptureStopTests.swift": "177ac61d93e100ca7f27d2321952674c09be2e4217eb080f1c9068e3d80d4d9e",
+    "Tests/ClavuneCoreTests/ClipboardTests.swift": "889de0175059851040dae8e48cefdc0f471ff75f9f80e9861729d9d7aec3c2fa",
+    "Tests/ClavuneCoreTests/CoordinatorFixtures.swift": "fa8c380d4e468d07d6d73154e266519ef65f733722f24436b283b03b18918069",
+    "Tests/ClavuneCoreTests/CoreTests.swift": "b732c9010df632797605001657bb5963f18186bce7be20a9842f37e00e92f3ce",
+    "Tests/ClavuneCoreTests/DevelopmentShortcutTests.swift": "c1356aa5386c53340ae7ba23e6081eacb38fde07061cb712709e6e1a82d37d7a",
+    "Tests/ClavuneCoreTests/IngressAdaptationTests.swift": "9112750b97cbca6b9d9297c90e1fcef9c0e6c03fb71b4090056bee8d47d0619f",
+    "Tests/ClavuneCoreTests/InsertionPolicyTests.swift": "cdda0c42ab179cc118d6c3749f6e5505a4fb6b120724cdded68b150daeb009ca",
+    "Tests/ClavuneCoreTests/ModelRecoveryTests.swift": "4948930babc6702c46f3fc5dd32fd7be5848f20470e2142f9baba74362382f0e"
+  },
+  "testConfigurationSHA256": {
+    "Package.swift": "5572b98e73d0134e426e14359ce18a8473900a22eaaa43cbb06ffb9ecc56469a",
+    "Dependencies.lock.json": "cac3972cc50e125f4faf870f1d0babaa2c660fe5cf41c3166852f44c7a51c3f5",
+    "Config/Product.json": "c54408d94236805ef3562cea9347afa96dd3daab2b34401071580de6a7a93884"
+  }
+}
