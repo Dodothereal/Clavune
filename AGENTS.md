@@ -1,10 +1,10 @@
-# OpenWispr implementation rules
+# Clavune implementation rules
 
 Read STATUS.md before continuing. Keep private planning, personal diagnostics, recordings, model weights, and build output out of Git. No secrets or personal machine paths in committed files.
 
 The private planning read caches in .planning are authoritative excerpts of the user's Library plan. The introduction and consolidation supersede historical appendices. Do not execute appendix examples without review. Current user instructions take priority.
 
-Work in this one local implementation thread. Do not create additional local threads or subagents. The parent coordinates independent cloud review.
+Work in this one user-facing local implementation thread. Do not create additional independent local threads. The user later authorized useful subagents inside this thread; use them for focused review while avoiding parallel heavy builds or benchmarks. The parent also coordinates independent cloud review.
 
 Use SwiftUI/AppKit for the app and a minimal native bridge for one pinned whisper.cpp backend. Target macOS 14+ and Apple Silicon unless a verified build constraint is documented. No mandatory cloud inference or end-user Homebrew dependency.
 
@@ -19,3 +19,5 @@ No decorative emoji, fixed visual design, idle animation loops, telemetry, or de
 Use low-impact tests and bounded build parallelism while other tests load this Mac. Do not stop other workloads. Do not run a benchmark matrix without coordination. Record actual command results and leave unmeasured values explicitly unmeasured.
 
 Keep STATUS.md concise and up to date. Public visibility, signed releases, paid enrollment, credentials, and security-setting changes require separate authorization. Private repository owner has been explicitly confirmed as Dodothereal. No force pushes or destructive history edits.
+
+The user selected Clavune on 2026-10-20. The existing private repository is renamed in place. The authorized local directory remains the original OpenWispr directory. Historical LocalFlow/OpenWispr planning evidence stays unchanged. This name selection is not legal clearance.

@@ -1,0 +1,16 @@
+name: Manual native validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    # Intentionally opt-in on an existing authorized Apple Silicon runner.
+    # This checkpoint does not install a runner or trigger hosted/paid work.
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: bash Scripts/build-backend.sh
+      - run: bash Scripts/swift.sh test --jobs 2
+      - run: bash Scripts/build-app.sh

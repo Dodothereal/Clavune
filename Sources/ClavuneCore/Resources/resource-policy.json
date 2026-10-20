@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "profile": "development-batch-arm64",
+  "approval": "provisional-safety-bounds-not-performance-guarantees",
+  "sampleRate": 16000,
+  "sessionLimitSeconds": 120,
+  "ringSlots": 64,
+  "maxNativeBlockFrames": 4096,
+  "pumpIntervalMilliseconds": 10,
+  "firstBufferTimeoutSeconds": 3,
+  "stopDrainTimeoutSeconds": 0.5,
+  "maxInputChannels": 32,
+  "inferenceThreads": 2,
+  "activeInferenceJobs": 1,
+  "previewEnabled": false,
+  "metrics": {
+    "firstSample": "unmeasured",
+    "stopToFinalText": "unmeasured",
+    "insertion": "unmeasured",
+    "cpu": "unmeasured",
+    "peakMemory": "unmeasured",
+    "energy": "unmeasured",
+    "quality": "unmeasured"
+  }
+}

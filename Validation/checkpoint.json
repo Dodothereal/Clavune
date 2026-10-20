@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-20",
+  "platform": {
+    "architecture": "arm64",
+    "osReported": "macOS 27.2 (26B5112a)",
+    "swift": "6.4",
+    "deploymentTarget": "14.0",
+    "minimumOSRuntimeTested": false
+  },
+  "backend": {
+    "command": "bash Scripts/build-backend.sh",
+    "exitCode": 0,
+    "commit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+    "parallelJobs": 2
+  },
+  "swiftBuild": {
+    "command": "bash Scripts/swift.sh build --jobs 2",
+    "exitCode": 0
+  },
+  "tests": {
+    "command": "bash Scripts/swift.sh test --jobs 2",
+    "exitCode": 0,
+    "count": 16,
+    "failures": 0,
+    "scope": "synthetic PCM conversion/tail/cutoff backlog, state, model rejection, isolated insertion policy"
+  },
+  "packaging": {
+    "command": "bash Scripts/build-app.sh",
+    "exitCode": 0,
+    "artifact": "artifacts/Clavune.app",
+    "fileBytes": 7547973,
+    "executableBytes": 7535120,
+    "signing": "ad-hoc development with Hardened Runtime; audio-input only",
+    "bundleAudit": "arm64; minimum macOS 14.0; system-only dynamic dependencies",
+    "appLaunched": false,
+    "executableSHA256": "d6c18134c6d735131576b4b5a38b548a152561fb5a9281328a5626e00dde2787",
+    "optimizedBuildSecondsReported": 3.93
+  },
+  "unmeasured": [
+    "microphone hardware endpoint",
+    "real model inference",
+    "recognition quality",
+    "key-up to final text",
+    "insertion latency",
+    "resident or peak memory",
+    "CPU during inference",
+    "energy",
+    "clean installation"
+  ],
+  "otherWorkloadsStopped": false,
+  "repository": "https://github.com/Dodothereal/Clavune",
+  "repositoryVisibility": "PRIVATE",
+  "review": {
+    "focusedReviewers": 2,
+    "findingsAddressed": "Validation/review-notes.md"
+  }
+}

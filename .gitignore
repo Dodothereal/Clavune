@@ -4,3 +4,12 @@ artifacts/
 .DS_Store
 *.xcuserstate
 DerivedData/
+*.wav
+*.m4a
+*.mp3
+*.pcm
+*.bin
+*.gguf
+*.log
+.env
+.env.*

@@ -1,0 +1,9 @@
+{
+  "displayName": "Clavune",
+  "bundleIdentifier": "org.clavune.development",
+  "executable": "Clavune",
+  "storageDirectory": "Clavune",
+  "version": "0.1.0",
+  "build": "1",
+  "namingStatus": "user-selected-provisional-not-legal-clearance"
+}

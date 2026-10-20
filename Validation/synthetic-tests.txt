@@ -1,0 +1,48 @@
+Test Suite 'All tests' started at 2026-10-20 16:05:51.813.
+Test Suite 'ClavuneCoreTests.xctest' started at 2026-10-20 16:05:51.818.
+Test Suite 'CoreTests' started at 2026-10-20 16:05:51.818.
+Test Case '-[ClavuneCoreTests.CoreTests testCancellationAndStaleResultsCannotContaminateNextSession]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testCancellationAndStaleResultsCannotContaminateNextSession]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testConverterDrainsLastSamplesAndRejectsNonfiniteInput]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testConverterDrainsLastSamplesAndRejectsNonfiniteInput]' passed (0.007 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testCutoffIncludesTailAndRejectsDiscontinuity]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testCutoffIncludesTailAndRejectsDiscontinuity]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testDuplicateStopAndBusyStartAreRejected]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testDuplicateStopAndBusyStartAreRejected]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testManifestContainsRealHashesButNoPromotedDefault]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testManifestContainsRealHashesButNoPromotedDefault]' passed (0.001 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testModelImportRejectsUnexpectedBytesWithoutInstalling]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testModelImportRejectsUnexpectedBytesWithoutInstalling]' passed (0.001 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testNativeRateConversionIsContinuousAndChunkInvariant]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testNativeRateConversionIsContinuousAndChunkInvariant]' passed (0.054 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testOversizedIngressNeverTruncatesSilently]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testOversizedIngressNeverTruncatesSilently]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testQueuedStopRejectsAlreadyConvertedPostCutoffAudio]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testQueuedStopRejectsAlreadyConvertedPostCutoffAudio]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testRingWrapAndLossAreExplicit]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testRingWrapAndLossAreExplicit]' passed (0.001 seconds).
+Test Case '-[ClavuneCoreTests.CoreTests testUnknownTimestampsFailClosed]' started.
+Test Case '-[ClavuneCoreTests.CoreTests testUnknownTimestampsFailClosed]' passed (0.000 seconds).
+Test Suite 'CoreTests' passed at 2026-10-20 16:05:51.883.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.064 (0.065) seconds
+Test Suite 'InsertionPolicyTests' started at 2026-10-20 16:05:51.883.
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testFocusAndTranscriptRevisionChangesBlockMutation]' started.
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testFocusAndTranscriptRevisionChangesBlockMutation]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testPreviewIsDefaultAndNonemptySelectionRequiresExplicitReplacement]' started.
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testPreviewIsDefaultAndNonemptySelectionRequiresExplicitReplacement]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testSecureUnknownAndTerminalTargetsAreBlockedWithoutClipboardEscape]' started.
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testSecureUnknownAndTerminalTargetsAreBlockedWithoutClipboardEscape]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testSelectedTextCapabilityIsRequiredPerElement]' started.
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testSelectedTextCapabilityIsRequiredPerElement]' passed (0.000 seconds).
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testUnknownWriteOutcomeNeverPermitsRetryOrFallback]' started.
+Test Case '-[ClavuneCoreTests.InsertionPolicyTests testUnknownWriteOutcomeNeverPermitsRetryOrFallback]' passed (0.000 seconds).
+Test Suite 'InsertionPolicyTests' passed at 2026-10-20 16:05:51.884.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'ClavuneCoreTests.xctest' passed at 2026-10-20 16:05:51.884.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.064 (0.065) seconds
+Test Suite 'All tests' passed at 2026-10-20 16:05:51.884.
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.064 (0.070) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

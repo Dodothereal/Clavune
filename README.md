@@ -1,23 +1,25 @@
-# OpenWispr
+# Clavune
 
-Native macOS dictation application in development. Working name; naming and trademark clearance are pending before public release.
+Native offline macOS dictation, currently a private development checkpoint. Clavune is the user's selected provisional name; public naming and trademark clearance remain pending. The project was previously called OpenWispr, and the private source plan uses LocalFlow.
 
-## Current state
+## What exists
 
-M0 inventory and architecture preparation. No application has been implemented, launched, or performance tested yet. See [STATUS.md](STATUS.md).
+- SwiftUI/AppKit menu-bar shell with a separate nonactivating recording/review panel.
+- Explicit recording/cancel controls, native-rate bounded ingress and continuous 16-kHz mono conversion.
+- Pinned embedded whisper.cpp v1.9.5 with static CPU/Accelerate and Metal support.
+- Deliberate hash-checked local model import; four candidates, no promoted default.
+- In-memory batch transcription, unmodified raw result, editable preview and deliberate copy.
+- Optional development Carbon chord, Ctrl–Option–Space, with hold/toggle handling.
+- Isolated insertion policy foundations. External insertion and automatic paste are not enabled.
 
-## Intended product
+Build and tests: [Docs/BUILD.md](Docs/BUILD.md). Current evidence and outstanding work: [STATUS.md](STATUS.md).
 
-- SwiftUI/AppKit menu-bar application for Apple Silicon, targeting macOS 14 or later.
-- One embedded, pinned whisper.cpp backend; offline dictation after deliberate local model import or verified installation.
-- Explicit recording state, microphone closed when idle, bounded in-memory audio, safe cancellation, and a batch quality reference.
-- Review and deliberate copying first; verified selection-aware insertion follows with isolated fixtures.
-- German, English, mixed language, technical terms, numbers, and negations evaluated before performance promotion.
-- Replaceable presentation components; no fixed visual design and no decorative emoji.
-- No mandatory account, cloud inference, telemetry, subscription, or automatic content history.
+## Current limits
 
-## Development and release boundaries
+The app compiles and a local ad-hoc signed development bundle passes architecture/dependency checks. Sixteen deterministic tests pass. No microphone session, real-model transcription, quality benchmark, real target insertion, macOS 14 runtime test or clean-Mac installation has been performed. This is not a notarized public release.
 
-No end-user Homebrew dependency is intended. Build and test instructions will be added with the first implementation checkpoint. Private planning documents, recordings, model weights, diagnostic inventories, and local build output are excluded from Git.
+The development session limit is 120 seconds. An unconfirmed endpoint, stop-queue race, overflow, device gap or limit produces an error. Model selection is session-only for now. Hotkey configuration and real-device robustness are still incomplete.
 
-The proposed source license is MIT; see LICENSE. Final copyright, name, license, and release destination require review before public visibility. Signing, notarization, clean-Mac installation, model quality gates, and release performance measurements are not complete.
+No account, mandatory cloud inference, subscription, telemetry or automatic content history. No private plan, personal recording, machine inventory, model weights or build cache is committed.
+
+See [PRIVACY.md](PRIVACY.md), [SECURITY.md](SECURITY.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [Docs/RELEASE_CHECKLIST.md](Docs/RELEASE_CHECKLIST.md). The source uses a proposed MIT license pending final public-release review.

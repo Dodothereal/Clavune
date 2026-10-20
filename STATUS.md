@@ -1,36 +1,44 @@
-# OpenWispr status
+# Clavune status
 
-2026-10-20 — M0 checkpoint. Implementation will continue in this same local thread after parent review.
+2026-10-20 — first source/build review checkpoint. This same local thread will continue after parent review.
 
 ## Completed
 
-- Verified the actual local executor, home and project location; directory was empty. No existing work overwritten.
-- Apple Silicon arm64; raw OS output macOS 27.2 (26B5112a); Xcode selected; Swift 6.4.
-- Read applicable home instructions. Project AGENTS.md now records implementation boundaries.
-- Read Library introduction, binding consolidation, master milestones, and technical/efficiency chapters through line 3520. Private read caches retained in .planning. Historical appendix snippets were not executed.
-- Pinned official whisper.cpp v1.9.5 commit and verified downloaded source archive SHA-256. Source extracted into ignored .build/deps/whisper.cpp.
-- Recorded official model file hashes and sizes as unpromoted candidates. No model downloaded or loaded; no default selected.
-- Existing authenticated GitHub account ownership explicitly confirmed by the user. No matching OpenWispr/LocalFlow repository appeared in account inventory; exact destination check follows before creation.
-- Proposed MIT source license added for review before public release.
+- Verified the actual local executor, home and target. The project directory was empty; no existing work was overwritten. The authorized directory remains unchanged after renaming the product.
+- Apple Silicon arm64; raw OS output macOS 27.2 (26B5112a); selected Xcode; Swift 6.4. Actual session model/reasoning are not exposed. Parent reports requesting gpt-6.1-sol / ultra; no independent confirmation claimed.
+- Read Library introduction, binding consolidation and master milestones first. Retrieved technical/efficiency content through line 3520 into private read caches. Historical appendix snippets were not executed.
+- Pinned whisper.cpp v1.9.5 commit d1be6fde11ac6e0407606b4e42fe72d34add8037 and verified the source archive hash. Built static arm64 backend with embedded Metal sources and two jobs.
+- Implemented four targets: app, core, native bridge and tests. Native-rate bounded SPSC ingress, continuous tested 16-kHz conversion, monotonic cutoff, closed capture before batch inference, independent session cancellation and decoder state, deliberate verified model import, review/edit/raw/copy shell.
+- Optional fixed Carbon development chord is off by default. External insertion is not enabled; its policy is tested with isolated metadata fixtures.
+- User confirmed GitHub ownership. Created the private repository, then renamed that same repository in place after the user selected Clavune and an exact destination check found no conflict. Verified https://github.com/Dodothereal/Clavune remains PRIVATE. No second repository or public release created.
+- Centralized product identity in Config/Product.json and the standalone ProductIdentity fallback. Historical private plan evidence remains unchanged. Naming selection is provisional, not legal clearance.
+- Added build scripts, privacy/security documentation, proposed MIT license, third-party licenses, resource policy/model hashes, manual-only CI and release checklist.
+- Initial 10 synthetic tests passed; after naming and insertion-policy fixtures, 15 passed. Focused read-only reviews found endpoint/cancel/import issues, fixed before this checkpoint. Expanded suite reports 16 tests and 0 failures. Exact sanitized output is in Validation/synthetic-tests.txt.
+- Optimized ad-hoc development app packages successfully. Bundle audit verifies arm64, macOS 14 minimum load command and system-only dynamic dependencies. This does not prove macOS 14 runtime compatibility. Artifact: artifacts/Clavune.app. The previous development bundle is preserved separately under artifacts.
 
-## Evidence and limits
+## Validation and review
 
-- Exact local host/home/project evidence is private in .planning/inventory.txt. No private machine paths are committed.
-- Environment exposes no actual session model/reasoning setting. Parent reports requesting gpt-6.1-sol / ultra; actual selection remains independently unverified.
-- Observed load averages approximately 8. No existing workloads stopped.
-- Hardware model/memory/CPU sysctl reads were denied by the sandbox. No retry performed and no resource quantities inferred.
-- Library cloud skill/helper became unavailable during this turn. Direct Library reads succeeded; caches are excerpts, not byte-exact materialization. ZIP plan package not materialized.
-- The few targeted conventional model directories checked did not expose a model file. No broad private-data scan was performed.
-- No compiler build, unit tests, application launch, microphone access, audio capture, inference, or performance benchmark has run.
+Commands and results: Validation/checkpoint.json. Read-only review findings/fixes and open coverage: Validation/review-notes.md. Raw local command logs remain private in .planning. A read-only source ZIP is produced from the exact committed files by Scripts/prepare-review.py.
 
-## Next checkpoint
+No app launch, microphone access, audio recording, real-model loading/inference, target-app mutation or substantial performance benchmark has run. No other workloads were stopped. Observed initial load averages were about 8; RAM, CPU during inference, energy, real recognition quality and latency remain unmeasured. Bundle byte size is not process RAM.
 
-1. Add reproducible arm64 backend build with static libraries and embedded Metal resources, bounded to two build jobs.
-2. Implement four targets: native bridge, testable core, app, tests. Bounded native-rate ingress, continuous tested 16-kHz conversion, safe stop/cancel, model import and in-memory batch result.
-3. Restrained replaceable menu-bar shell with explicit recording state, review/copy and content-free milestones. No fixed design.
-4. Deterministic synthetic tests and portable bundle audit; prepare sanitized read-only review bundle for parent reviewers.
-5. Add narrowly scoped hotkeys and isolated insertion fixtures after batch checkpoint. Streaming and substantial model benchmarks remain gated.
+## Retained safety limits and approval outcomes
 
-## Remaining release decisions
+- Native decode guard: Sources/NativeBridge/WhisperBridge.cpp rejects more than 16000 * 120 samples. Resource policy and policy validation also cap the development session at 120 seconds. This is a provisional product bound, not a speed guarantee. At limit/loss/uncertain endpoint, capture fails visibly instead of returning a falsely complete transcript.
+- Auto-review rejected adding --disable-sandbox to the Swift wrapper. The patch did not execute. SwiftPM sandbox remains enabled; ordinary sandboxed builds succeeded with normal tool execution approval and project-local caches.
+- Auto-review separately rejected removing the native 120-second guard. The proposal arose while attempting to make the resource manifest the single numerical source; removal would weaken independent native admission. It did not execute. Both limits remain. No retry or workaround of either rejected change was used.
+- Hardware model/memory/CPU sysctl reads were denied by the execution sandbox. No retries or inferred quantities.
+- No pending user approval is required for this source checkpoint. Account ownership is resolved. Signing identities, paid enrollment, security-setting changes, notarization and publication are not authorized here.
 
-Naming/trademark clearance; final copyright/license review; model/conversion provenance and personal quality gates; actual macOS 14 deployment verification; safe endpoint/device tests; signing/notarization authorization and clean supported Mac installation. Nothing has been publicly released.
+## Remaining work
+
+1. Parent/cloud code review of this exact checkpoint; fix findings and improve deterministic concurrent/cancellation fixtures.
+2. Deliberate model selection/import and first real microphone/batch session when user and machine load permit. Validate endpoint and route behavior, especially Bluetooth. The conservative queued-stop race currently reports an endpoint error rather than trying to repair already-converted data.
+3. Restore chosen installed model across launches, provide a proper hotkey recorder, show verified actual input identity, test Sleep/Wake/device/permission/error behavior and model cancellation.
+4. Add validated AX adapters and isolated real-selection fixtures before enabling external insertion. Clipboard transfer remains deferred; explicit copying already works in code.
+5. Freeze personal quality references for German/English/code-switching/terms/numbers/negations. No standard model or quantization winner is selected. Full effective decoder parameter export remains open.
+6. Only then consider measured preview optimization, performance/resource profiles, DMG, Developer-ID/notarization authorization and clean supported Mac installation.
+
+## Access limits
+
+Library direct reads succeeded. The cloud skill/download helper became unavailable mid-turn, so the source ZIP was not materialized and read caches are excerpts, not a byte-exact Library download. Conventional targeted model-directory checks did not find a model; no broad scan of personal data was performed. These limits do not block code review but real inference still needs a deliberate verified model import.
