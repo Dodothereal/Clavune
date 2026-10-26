@@ -71,13 +71,29 @@ class TranscriptFileSourceContracts(unittest.TestCase):
     def test_open_commits_only_after_read_confirmation_and_freshness_recheck(self):
         source = (APP / 'AppCoordinator.swift').read_text()
         body = method(source, '    func openTranscript() {')
-        for requirement in ['guard canOpenTranscript, let admission = transcriptAdmission.begin()',
+        for requirement in ['guard canOpenTranscript,',
+                            'let preparation = transcriptSavePreparation.begin()',
+                            'guard commitPendingReviewText()',
+                            'let admission = transcriptAdmission.begin()',
+                            'transcriptSavePreparation.permits(preparation)',
+                            'TranscriptTextIdentity.matches(editedText, preparedText)',
                             'generation == cancellationGeneration', 'Task.detached(priority: .utility)',
                             'onCancel: { reading.cancel() }', 'session.id == previousID',
                             'if hasPendingReview || !editedText.isEmpty',
                             'environment.confirmTranscriptReplacement(uiLanguage)',
                             'guard session.openTranscript(text)', 'editedText = text; metrics = nil']:
             self.assertIn(requirement, body)
+        preparation = body.index('transcriptSavePreparation.begin()')
+        commit = body.index('commitPendingReviewText()')
+        admission = body.index('transcriptAdmission.begin()')
+        revalidation = body.index('transcriptSavePreparation.permits(preparation)', admission)
+        release = body.index('transcriptSavePreparation.finish(preparation)', admission)
+        chooser = body.index('environment.chooseTranscriptToOpen')
+        self.assertLess(preparation, commit, 'Reserve reentry before publishing native composition')
+        self.assertLess(commit, admission, 'Commit before admission disables the native editor')
+        self.assertLess(admission, revalidation, 'Revalidate after admission willSet callbacks')
+        self.assertLess(revalidation, release)
+        self.assertLess(release, chooser)
         self.assertEqual(body.count('TranscriptTextIdentity.matches(editedText, previousText)'), 2,
                          'Both pending-read checks compare exact draft bytes')
         self.assertLess(body.index('try await reading.value'), body.index('environment.confirmTranscriptReplacement'))

@@ -2,28 +2,33 @@
 
 26 October 2026 — **experimental source candidate, not a supported release**.
 
-The source contains a native SwiftUI/AppKit app, bounded local recording/audio
-import, an embedded pinned whisper.cpp backend, verified model setup, editable
-transcript review and local statistics. No account, cloud transcription service,
-automatic model download, automatic paste or remote telemetry is included.
+Clavune contains a native SwiftUI/AppKit app, bounded local recording/audio import,
+an embedded pinned whisper.cpp backend, verified model setup, editable transcript
+review and local statistics. No account, cloud transcription service, automatic
+model download, automatic paste or remote telemetry is included.
 
-The proposed current source passed **246 portable Python tests** using the ordinary
-README command in an isolated source/support/documentation assembly. The production
-C++ ingress-close fixture passed on Linux normally and with UBSan-only instrumentation.
-The combined ASan/LSan attempt is inconclusive because LeakSanitizer rejected the
-host's ptrace environment; its failure is retained.
+The current native repair fixes Open's marked-text preparation boundary and the
+synthetic QA fixture's exact macOS temporary-directory alias handling. Its source
+snapshot is Git tree `b43df86a56164030dd69480d499af0287f991236`; subsequent status
+documentation does not alter application or test bytes.
 
-These results are not native Swift, macOS app, microphone, model, visible UI or
-clean-install acceptance. The latest source has not been compiled/run on macOS.
-Earlier launch failures (`-10827` / Cocoa `259`), Open/Save/Cancel/IME behavior and
-real-device validation remain unresolved.
+- **246 portable Python tests passed**, independently rerun on the exact repair tree.
+- **29 focused native tests passed** on the development Mac.
+- The full native Swift run reported **558 passed, one Settings accessibility-test
+  failure and one intentionally skipped render test**. It is not a full-suite pass.
+- A corrected Release, ad-hoc-signed normal-development app passed launch,
+  Open with synthetic text and Quit on that Mac. This is not clean-install acceptance.
 
-See [validation status](Docs/VALIDATION.md) for exact source identities and test
-boundaries, [build instructions](Docs/BUILD.md) for supported commands, and the
-[publication checklist](Docs/PUBLICATION_CHECKLIST.md) for remaining owner/security
-decisions. Historical files under [Validation](Validation/README.md) are retained
-for provenance, not presented as evidence for the current source.
+Live speech recognition, physical IME behavior, VoiceOver, motion settings and
+clean-machine installation remain unverified; window-only reopening is unconfirmed.
+Broader native document workflow checks from an earlier
+baseline are not promoted to acceptance of the repair tree. No supported signed/
+notarized binary or accuracy/performance result is claimed.
 
-Publishing an explicitly experimental source repository does not establish a
-working signed/notarized binary. No public visibility or binary release is approved
-by this status file.
+See [validation status](Docs/VALIDATION.md) for identities and evidence boundaries,
+[build instructions](Docs/BUILD.md) for commands, and the
+[publication checklist](Docs/PUBLICATION_CHECKLIST.md) for source/privacy/CI and
+owner decisions. [Historical validation](Validation/README.md) remains historical.
+
+Source publication and binary distribution are separate decisions. This status
+file does not authorize a push, visibility change or binary release.

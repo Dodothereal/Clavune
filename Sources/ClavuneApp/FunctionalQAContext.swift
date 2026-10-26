@@ -196,12 +196,31 @@ private final class FunctionalQAFiles: @unchecked Sendable {
             throw error
         }
     }
+    private func matchesOwnedSpelling(_ url: URL, expected: URL) -> Bool {
+        if url == expected { return true }
+        // Native panels can spell Darwin's temporary root with or without
+        // /private. Admit only the exact alternate built from our owned path,
+        // never arbitrary inputs that merely resolve to the same file.
+        let path = expected.path
+        let alternate: String
+        if path.hasPrefix("/var/") || path.hasPrefix("/tmp/") {
+            alternate = "/private" + path
+        } else if path.hasPrefix("/private/var/") || path.hasPrefix("/private/tmp/") {
+            alternate = String(path.dropFirst("/private".count))
+        } else {
+            return false
+        }
+        return url == URL(fileURLWithPath: alternate)
+    }
     private func verify(_ url: URL, name: String, mayBeAbsent: Bool = false) throws {
         try verifyDirectory()
-        guard url.isFileURL, url == directory.appendingPathComponent(name),
-              url.resolvingSymlinksInPath() == url else { throw FunctionalQAContext.Failure.unsafeEntry }
+        let expectedURL = directory.appendingPathComponent(name)
+        guard url.isFileURL, matchesOwnedSpelling(url, expected: expectedURL),
+              url.deletingLastPathComponent().resolvingSymlinksInPath() ==
+                directory.resolvingSymlinksInPath() else { throw FunctionalQAContext.Failure.unsafeEntry }
         if let expected = identities[name] {
-            guard try identity(name) == expected else { throw FunctionalQAContext.Failure.unsafeEntry }
+            guard url.resolvingSymlinksInPath() == expectedURL.resolvingSymlinksInPath(),
+                  try identity(name) == expected else { throw FunctionalQAContext.Failure.unsafeEntry }
         } else {
             var info = stat()
             guard mayBeAbsent, fstatat(descriptor, name, &info, AT_SYMLINK_NOFOLLOW) != 0,
@@ -217,7 +236,7 @@ private final class FunctionalQAFiles: @unchecked Sendable {
     }
     func readTranscript(_ url: URL) throws -> String {
         lock.lock(); defer { lock.unlock() }
-        let name = url == saved ? "saved.txt" : "opened.txt"
+        let name = url.lastPathComponent == "saved.txt" ? "saved.txt" : "opened.txt"
         try verify(url, name: name)
         let text = try TranscriptFileStore.read(url)
         try verify(url, name: name)

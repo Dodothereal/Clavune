@@ -338,7 +338,7 @@ final class MarkedTextSaveBoundaryTests: UIFixtureAssertions {
         XCTAssertTrue(io.written.value.isEmpty)
     }
 
-    @MainActor private func verifyPublishedReentryIsCancelled(privacy: Bool) async throws {
+    @MainActor private func verifyPublishedReentryIsCancelled(privacy: Bool, opening: Bool = false) async throws {
         let io = IO(), fixture = try await makeFixture(io)
         let host = try await makeHost(fixture, io: io)
         defer { close(host, fixture: fixture, io: io) }
@@ -362,7 +362,8 @@ final class MarkedTextSaveBoundaryTests: UIFixtureAssertions {
             else { fixture.coordinator.cancel() }
         }
         defer { observation.cancel() }
-        fixture.coordinator.saveTranscript()
+        if opening { fixture.coordinator.openTranscript() }
+        else { fixture.coordinator.saveTranscript() }
         try await refresh(host.view)
         XCTAssertEqual(publications, 1, "The production commit must actually publish")
         XCTAssertEqual(io.openChoosers, 1, "Reentrant Open was rejected before a chooser")
@@ -387,7 +388,19 @@ final class MarkedTextSaveBoundaryTests: UIFixtureAssertions {
         try await verifyPublishedReentryIsCancelled(privacy: true)
     }
 
+    @MainActor func testOpenCommitReentryCancelRevokesQueuedQuit() async throws {
+        try await verifyPublishedReentryIsCancelled(privacy: false, opening: true)
+    }
+    @MainActor func testOpenCommitReentryPrivacyRevokesQueuedQuit() async throws {
+        try await verifyPublishedReentryIsCancelled(privacy: true, opening: true)
+    }
     @MainActor func testReentrantQuitWaitsForCommittedBytesAndRunsDecisionOnce() async throws {
+        try await verifyReentrantQuit(opening: false)
+    }
+    @MainActor func testOpenReentrantQuitWaitsForCommittedBytesAndRunsDecisionOnce() async throws {
+        try await verifyReentrantQuit(opening: true)
+    }
+    @MainActor private func verifyReentrantQuit(opening: Bool) async throws {
         let io = IO(), fixture = try await makeFixture(io)
         let host = try await makeHost(fixture, io: io)
         defer { close(host, fixture: fixture, io: io) }
@@ -402,11 +415,13 @@ final class MarkedTextSaveBoundaryTests: UIFixtureAssertions {
             fixture.coordinator.quit()
         }
         defer { observation.cancel() }
-        fixture.coordinator.saveTranscript()
+        if opening { fixture.coordinator.openTranscript() }
+        else { fixture.coordinator.saveTranscript() }
         try await refresh(host.view)
         XCTAssertEqual(publications, 1)
         XCTAssertEqual(io.quitConfirmations, 1)
         XCTAssertEqual(io.quitObservedText.map { Data($0.utf8) }, [Data(expected.utf8)])
+        XCTAssertEqual(io.openChoosers, 1)
         XCTAssertEqual(io.saveChoosers, 0)
         XCTAssertTrue(io.written.value.isEmpty)
         XCTAssertEqual(fixture.coordinator.session.id, reviewID)
@@ -417,6 +432,12 @@ final class MarkedTextSaveBoundaryTests: UIFixtureAssertions {
     }
 
     @MainActor func testPreparationFenceSurvivesRealFileAdmissionWillChange() async throws {
+        try await verifyAdmissionFence(opening: false)
+    }
+    @MainActor func testOpenPreparationFenceSurvivesRealFileAdmissionWillChange() async throws {
+        try await verifyAdmissionFence(opening: true)
+    }
+    @MainActor private func verifyAdmissionFence(opening: Bool) async throws {
         let io = IO(), fixture = try await makeFixture(io)
         let host = try await makeHost(fixture, io: io)
         defer { close(host, fixture: fixture, io: io) }
@@ -437,7 +458,8 @@ final class MarkedTextSaveBoundaryTests: UIFixtureAssertions {
             fixture.coordinator.cancel()
         }
         defer { observation.cancel() }
-        fixture.coordinator.saveTranscript()
+        if opening { fixture.coordinator.openTranscript() }
+        else { fixture.coordinator.saveTranscript() }
         try await refresh(host.view)
         XCTAssertEqual(admissionPublications, 1, "Exercise the actual postcommit admission publication")
         XCTAssertEqual(io.openChoosers, 1)

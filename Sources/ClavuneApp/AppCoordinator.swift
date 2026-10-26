@@ -1084,8 +1084,35 @@ final class AppCoordinator: ObservableObject {
 
     /// No admission, file access or work until the user invokes a document action.
     func openTranscript() {
-        guard canOpenTranscript, let admission = transcriptAdmission.begin() else { return }
-        let generation = cancellationGeneration
+        // Commit native composition while the editor is still enabled. Reserve
+        // commands without publishing the admission that disables its host.
+        guard canOpenTranscript,
+              let preparation = transcriptSavePreparation.begin() else { return }
+        let generation = cancellationGeneration, preparingReviewID = session.id
+        defer {
+            transcriptSavePreparation.finish(preparation)
+            if quitAfterTranscriptSavePreparation {
+                quitAfterTranscriptSavePreparation = false
+                quit()
+            }
+        }
+        guard commitPendingReviewText() else {
+            message = "Öffnen nicht übernommen: Die Vorschau wurde inzwischen geändert."
+            return
+        }
+        let preparedText = editedText
+        guard transcriptSavePreparation.permits(preparation), generation == cancellationGeneration,
+              session.id == preparingReviewID, !quitRequested, !quitDecisionPending,
+              let admission = transcriptAdmission.begin() else { return }
+        // Admission publishes through willSet; observers can cancel or request
+        // Quit before its setter completes, so keep the reservation until now.
+        guard transcriptSavePreparation.permits(preparation), generation == cancellationGeneration,
+              transcriptAdmission.permits(admission), session.id == preparingReviewID,
+              TranscriptTextIdentity.matches(editedText, preparedText),
+              !quitRequested, !quitDecisionPending else {
+            transcriptAdmission.finish(admission); resumeDeferredQuitSaveIfReady(); return
+        }
+        transcriptSavePreparation.finish(preparation)
         let selectedURL = environment.chooseTranscriptToOpen(uiLanguage)
         guard transcriptAdmission.permits(admission), generation == cancellationGeneration else {
             transcriptAdmission.finish(admission); resumeDeferredQuitSaveIfReady(); return

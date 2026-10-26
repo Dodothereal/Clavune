@@ -6,10 +6,11 @@ Clavune combines a SwiftUI/AppKit interface with an embedded whisper.cpp backend
 The aim is a simple workflow: record or import audio, transcribe on your Mac,
 review the text, and deliberately copy or save it.
 
-> **Development source, not a supported release.** Native launch and several
-> Open/Save/IME workflows remain unresolved. There is no notarized download and
-> the latest cloud-reviewed changes have not passed native Swift compilation or
-> the complete macOS test suite. See [validation status](Docs/VALIDATION.md).
+> **Development source, not a supported release.** A development-Mac build and a
+> narrow launch/Open/Quit smoke check have passed. The full Swift run still has one
+> Settings accessibility-test failure; live recognition and physical-device
+> acceptance remain unverified. There is no notarized download. See the exact
+> [validation status](Docs/VALIDATION.md), including test limitations.
 
 ## What's in the source
 

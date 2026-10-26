@@ -18,6 +18,82 @@ final class FunctionalQAContextTests: XCTestCase {
             "CLAVUNE_QA_FUNCTIONAL": "synthetic-v1",
             "CLAVUNE_QA_NATIVE_PANELS": "synthetic-v1"])
     }
+    private func systemTemporaryAlias(of url: URL) throws -> URL {
+        let path = url.path
+        let alternate: String
+        if path.hasPrefix("/var/") || path.hasPrefix("/tmp/") {
+            alternate = "/private" + path
+        } else if path.hasPrefix("/private/var/") || path.hasPrefix("/private/tmp/") {
+            alternate = String(path.dropFirst("/private".count))
+        } else {
+            throw XCTSkip("The actual temporary root does not use a Darwin /private alias")
+        }
+        let alias = URL(fileURLWithPath: alternate)
+        XCTAssertNotEqual(alias, url)
+        XCTAssertEqual(alias.deletingLastPathComponent().resolvingSymlinksInPath(),
+                       url.deletingLastPathComponent().resolvingSymlinksInPath())
+        return alias
+    }
+
+    @MainActor func testNativePanelAcceptsExactSystemAliasForOwnedOpenSaveAndReadBack() throws {
+        let context = try FunctionalQAContext(configuration: nativePanelConfiguration())
+        defer { try? context.cleanup() }
+        let environment = context.environment(terminate: {})
+        let opened = context.directory.appendingPathComponent("opened.txt")
+        let saved = context.directory.appendingPathComponent("saved.txt")
+        let openAlias = try systemTemporaryAlias(of: opened)
+        let saveAlias = try systemTemporaryAlias(of: saved)
+        XCTAssertTrue(context.acceptsOpenSelection(openAlias))
+        XCTAssertEqual(try environment.readTranscript(openAlias), FunctionalQAContext.openedText)
+        XCTAssertFalse(context.acceptsOpenSelection(saveAlias), "An absent saved file is not readable")
+        XCTAssertTrue(context.acceptsSaveSelection(saveAlias))
+        let text = "Synthetic native alias save — Grüße 42."
+        try environment.writeTranscript(text, saveAlias)
+        XCTAssertFalse(context.acceptsOpenSelection(saved), "Native QA Open remains limited to opened.txt")
+        XCTAssertFalse(context.acceptsOpenSelection(saveAlias), "Saved files are only read through the existing direct boundary")
+        XCTAssertEqual(try environment.readTranscript(saveAlias), text)
+        XCTAssertEqual(try environment.readTranscript(saved), text)
+        XCTAssertEqual(try environment.readTranscript(opened), FunctionalQAContext.openedText)
+    }
+
+    @MainActor func testNativePanelAliasGuardRejectsOtherSpellingsAndSymlinkEntries() throws {
+        let context = try FunctionalQAContext(configuration: nativePanelConfiguration())
+        defer { try? context.cleanup() }
+        let environment = context.environment(terminate: {})
+        let opened = context.directory.appendingPathComponent("opened.txt")
+        let alias = try systemTemporaryAlias(of: opened)
+        var query = try XCTUnwrap(URLComponents(url: alias, resolvingAgainstBaseURL: false))
+        query.query = "synthetic=1"
+        var fragment = try XCTUnwrap(URLComponents(url: alias, resolvingAgainstBaseURL: false))
+        fragment.fragment = "synthetic"
+        let traversal = try XCTUnwrap(URL(string: context.directory.absoluteString + "../" +
+            context.directory.lastPathComponent + "/opened.txt"))
+        let symlink = context.directory.deletingLastPathComponent()
+            .appendingPathComponent("Clavune-QA-Alias-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: context.directory)
+        defer { try? FileManager.default.removeItem(at: symlink) }
+        let linked = symlink.appendingPathComponent("opened.txt")
+        for rejected in [try XCTUnwrap(query.url), try XCTUnwrap(fragment.url), traversal, linked] {
+            XCTAssertFalse(context.acceptsOpenSelection(rejected))
+            XCTAssertFalse(context.acceptsSaveSelection(rejected))
+            XCTAssertThrowsError(try environment.readTranscript(rejected))
+        }
+        let retained = context.directory.appendingPathComponent("retained-opened.txt")
+        try FileManager.default.moveItem(at: opened, to: retained)
+        defer {
+            try? FileManager.default.removeItem(at: opened)
+            try? FileManager.default.moveItem(at: retained, to: opened)
+        }
+        try Data(FunctionalQAContext.openedText.utf8).write(to: opened, options: .withoutOverwriting)
+        XCTAssertFalse(context.acceptsOpenSelection(alias), "Identical bytes do not authorize a replacement inode")
+        XCTAssertThrowsError(try environment.readTranscript(alias))
+        try FileManager.default.removeItem(at: opened)
+        try FileManager.default.createSymbolicLink(at: opened, withDestinationURL: retained)
+        XCTAssertFalse(context.acceptsOpenSelection(alias))
+        XCTAssertThrowsError(try environment.readTranscript(alias))
+        XCTAssertEqual(try String(contentsOf: retained, encoding: .utf8), FunctionalQAContext.openedText)
+    }
+
     @MainActor private func waitForOperation(_ coordinator: AppCoordinator) async {
         guard coordinator.operationPending else { return }
         let done = expectation(description: "synthetic operation drained")

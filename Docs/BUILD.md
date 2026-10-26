@@ -43,7 +43,10 @@ native app. Run without Python optimization so integrity assertions remain enabl
 ```sh
 bash Scripts/build-backend.sh
 bash Scripts/swift.sh build --jobs 2
-bash Scripts/swift.sh test --jobs 2 --no-parallel
+CLAVUNE_RUN_UI_HOST_FIXTURES=1 \
+CLAVUNE_RUN_STATISTICS_UI_FIXTURE=1 \
+CLAVUNE_RUN_IME_SAVE_DIAGNOSTIC=1 \
+  bash Scripts/swift.sh test --jobs 2 --no-parallel
 bash Scripts/build-app.sh
 ```
 
@@ -74,17 +77,28 @@ bash Scripts/test-native-contracts.sh --sanitize
 ```
 
 These use bounded synthetic/fake resources, not a real microphone, speech model
-or GGML/Metal fault injection. Swift offscreen editor tests and native diagnostics
-have separate opt-in flags. Read each fixture before enabling it; a count of
-discovered tests is not a count of tests executed.
+or GGML/Metal fault injection. The full Swift command above opts into synthetic offscreen editor/statistics
+fixtures and the marked-text Save diagnostic; it does not launch a visible app,
+use a real microphone or run model inference. The separate app-content render test
+remains skipped unless its render opt-in and exact source-manifest binding are
+provided. Read each fixture before enabling it; a count of discovered tests is not
+a count of tests executed. The marked-text Save diagnostic deliberately fails
+without both of its opt-ins, so a bare `swift test` is not the full-suite command.
 
 ## Known limitations
 
-The latest cloud candidate has not been compiled or run on macOS. The previous
-native launch returned `-10827` / Cocoa error `259`; its cause remains unresolved.
-Real Open/Save/Cancel, marked-text composition and visible UI acceptance remain
-separate gates. See [validation status](VALIDATION.md). Do not publish a binary or
-claim a successful native build based on the portable checks alone.
+The native repair source has compiled on a development Mac. A corrected Release,
+ad-hoc-signed normal-development app passed launch, Open with a synthetic text file,
+and Quit checks on that machine. This is not a fresh, uncached developer setup or
+clean-machine installation test, and does not certify older app artifacts.
+
+The latest full Swift run is **not fully passing**: 558 passed, one Settings
+accessibility control lookup failed in the hidden test host (cause unresolved),
+and one app-content render test was intentionally
+skipped without its separate opt-in/source binding. The focused synthetic editor
+checks do not validate a physical IME, real microphone/model recognition, VoiceOver
+or motion settings. See [validation status](VALIDATION.md). Do not distribute a
+supported binary based on the narrow smoke check or portable tests alone.
 
 ## Manual native workflow
 
