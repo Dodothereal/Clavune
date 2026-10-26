@@ -12,11 +12,12 @@
       "license": "MIT",
       "manufacturer": "OpenAI",
       "conversionRepository": "ggerganov/whisper.cpp",
-      "conversionRevision": "unverified",
-      "sourceMetadata": "https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main?limit=100",
-      "metadataRetrieved": "2026-10-20",
+      "conversionRevision": "98aa99a0a9db05ae2342309f5096248665f7cba3",
+      "sourceRevision": "98aa99a0a9db05ae2342309f5096248665f7cba3",
+      "sourceURL": "https://huggingface.co/ggerganov/whisper.cpp/resolve/98aa99a0a9db05ae2342309f5096248665f7cba3/ggml-large-v3-turbo-q5_0.bin",
+      "metadataRetrieved": "2026-10-21",
       "engineCompatibility": "unverified",
-      "downloadEnabled": false
+      "downloadEnabled": true
     },
     {
       "fileName": "ggml-large-v3-turbo-q8_0.bin",
@@ -27,11 +28,12 @@
       "license": "MIT",
       "manufacturer": "OpenAI",
       "conversionRepository": "ggerganov/whisper.cpp",
-      "conversionRevision": "unverified",
-      "sourceMetadata": "https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main?limit=100",
-      "metadataRetrieved": "2026-10-20",
+      "conversionRevision": "0b364b566045a405be7225ee1e415a073e04da77",
+      "sourceRevision": "0b364b566045a405be7225ee1e415a073e04da77",
+      "sourceURL": "https://huggingface.co/ggerganov/whisper.cpp/resolve/0b364b566045a405be7225ee1e415a073e04da77/ggml-large-v3-turbo-q8_0.bin",
+      "metadataRetrieved": "2026-10-21",
       "engineCompatibility": "unverified",
-      "downloadEnabled": false
+      "downloadEnabled": true
     },
     {
       "fileName": "ggml-large-v3-turbo.bin",
@@ -42,11 +44,12 @@
       "license": "MIT",
       "manufacturer": "OpenAI",
       "conversionRepository": "ggerganov/whisper.cpp",
-      "conversionRevision": "unverified",
-      "sourceMetadata": "https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main?limit=100",
-      "metadataRetrieved": "2026-10-20",
+      "conversionRevision": "98aa99a0a9db05ae2342309f5096248665f7cba3",
+      "sourceRevision": "98aa99a0a9db05ae2342309f5096248665f7cba3",
+      "sourceURL": "https://huggingface.co/ggerganov/whisper.cpp/resolve/98aa99a0a9db05ae2342309f5096248665f7cba3/ggml-large-v3-turbo.bin",
+      "metadataRetrieved": "2026-10-21",
       "engineCompatibility": "unverified",
-      "downloadEnabled": false
+      "downloadEnabled": true
     },
     {
       "fileName": "ggml-large-v3.bin",
@@ -57,11 +60,12 @@
       "license": "MIT",
       "manufacturer": "OpenAI",
       "conversionRepository": "ggerganov/whisper.cpp",
-      "conversionRevision": "unverified",
-      "sourceMetadata": "https://huggingface.co/api/models/ggerganov/whisper.cpp/tree/main?limit=100",
-      "metadataRetrieved": "2026-10-20",
+      "conversionRevision": "362722b3fdcd2300b58a8286933ead1c48619667",
+      "sourceRevision": "362722b3fdcd2300b58a8286933ead1c48619667",
+      "sourceURL": "https://huggingface.co/ggerganov/whisper.cpp/resolve/362722b3fdcd2300b58a8286933ead1c48619667/ggml-large-v3.bin",
+      "metadataRetrieved": "2026-10-21",
       "engineCompatibility": "unverified",
-      "downloadEnabled": false
+      "downloadEnabled": true
     }
   ]
 }

@@ -36,9 +36,21 @@ public struct SessionMachine: Sendable {
         guard id == session, phase == .stopping else { return }
         phase = .transcribing
     }
+    /// File preparation has no microphone recording/stopping phases.
+    @discardableResult public mutating func transcribingImportedAudio(_ session: UUID) -> Bool {
+        guard id == session, phase == .preparing else { return false }
+        phase = .transcribing; return true
+    }
     public mutating func result(_ text: String, session: UUID) {
         guard id == session, phase == .transcribing else { return }
         rawTranscript = text; phase = .review
+    }
+    /// A validated file enters the same protected review state, without audio work.
+    /// Caller owns explicit replacement confirmation; busy sessions cannot be replaced.
+    @discardableResult public mutating func openTranscript(_ text: String) -> Bool {
+        guard !phase.isBusy else { return false }
+        id = UUID(); rawTranscript = text; failure = nil; phase = .review
+        return true
     }
     public mutating func fail(_ error: DictationError, session: UUID) {
         guard id == session, phase.isBusy else { return }
@@ -55,6 +67,13 @@ public struct SessionMachine: Sendable {
 public struct SessionMetrics: Sendable {
     public let session: UUID
     public let backendFingerprint: String
+    public var source: LocalMetricsEvent.Source = .microphone
+    public var requestedLanguage: String?
+    public var modelFileName: String?
+    public var modelSHA256: String?
+    public var detectedLanguageID: Int?
+    public var recognizedWordCount: Int?
+    public let processUsageAtStart: LocalProcessUsageSnapshot?
     public var requestedStart: UInt64
     public var firstSample: UInt64?
     public var requestedStop: UInt64?
@@ -63,13 +82,20 @@ public struct SessionMetrics: Sendable {
     public var insertionDispatched: UInt64?
     public var insertionVerified: UInt64?
     public var sourceSampleRate: Double?
+    public var processingSampleRate: Double?
     public var frames16k = 0
     public var modelWarm = false
     public var modelLoadSeconds: Double?
     public var decodeSeconds: Double?
-    public init(session: UUID, requestedStart: UInt64) {
+    /// Import admission through file decode/downmix/resampling, including worker queue time.
+    public var audioPreparationSeconds: Double?
+    /// Import admission after selection through result availability; not first screen paint.
+    public var audioImportTotalSeconds: Double?
+    public init(session: UUID, requestedStart: UInt64,
+                processUsageAtStart: LocalProcessUsageSnapshot? = LocalProcessUsageSnapshot.capture()) {
         self.session = session; self.requestedStart = requestedStart
         self.backendFingerprint = String(cString: ow_backend_fingerprint())
+        self.processUsageAtStart = processUsageAtStart
     }
     // No text, paths, clipboard or audio content belongs in this structure.
 }

@@ -5,6 +5,9 @@ permissions:
   contents: read
 jobs:
   validate:
+    # Never route this personal/self-hosted native job from a public repository.
+    # A skipped job is not a passing native validation result.
+    if: ${{ github.event.repository.private == true }}
     # Intentionally opt-in on an existing authorized Apple Silicon runner.
     # This checkpoint does not install a runner or trigger hosted/paid work.
     runs-on: [self-hosted, macOS, ARM64]

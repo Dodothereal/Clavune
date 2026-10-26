@@ -58,19 +58,22 @@ def package_app(root: Path, binary_directory: Path, *, run=None, publish=None) -
                         resources / (name + "_ClavuneCore.bundle"))
         shutil.copytree(root / "ThirdPartyLicenses", resources / "ThirdPartyLicenses")
         shutil.copy2(root / "THIRD_PARTY_NOTICES.md", resources / "THIRD_PARTY_NOTICES.md")
+        shutil.copy2(root / "LICENSE", resources / "LICENSE")
         info = {
             "CFBundleName": product["displayName"], "CFBundleDisplayName": product["displayName"],
             "CFBundleIdentifier": product["bundleIdentifier"], "CFBundleExecutable": name,
             "CFBundlePackageType": "APPL", "CFBundleShortVersionString": product["version"],
             "CFBundleVersion": product["build"], "LSMinimumSystemVersion": "14.0",
-            "LSUIElement": True, "NSHighResolutionCapable": True,
+            "LSUIElement": False, "NSHighResolutionCapable": True,
             "ProductStorageDirectory": product["storageDirectory"],
             "NSMicrophoneUsageDescription": product["displayName"] + " benötigt das Mikrofon ausschließlich für bewusst gestartete lokale Diktate.",
         }
         with (contents / "Info.plist").open("wb") as file:
             plistlib.dump(info, file)
+        # Re-sign only our newly copied, exclusively owned staging bundle: Swift may
+        # already have ad-hoc signed the input executable. The input stays unchanged.
         # Ad-hoc only: no identity, credentials, network submission or paid enrollment.
-        runner(["/usr/bin/codesign", "--sign", "-", "--options", "runtime",
+        runner(["/usr/bin/codesign", "--force", "--sign", "-", "--options", "runtime",
                 "--entitlements", str(root / "Config/Development.entitlements"), str(staged_app)], check=True)
         runner(["/usr/bin/codesign", "--verify", "--strict", str(staged_app)], check=True)
         runner([sys.executable, str(root / "Scripts/audit-bundle.py"), str(staged_app)], check=True)

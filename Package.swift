@@ -31,9 +31,11 @@ let package = Package(
                 .linkedFramework("Foundation"), .linkedFramework("MetalKit")
             ]),
         .target(name: "ClavuneCore", dependencies: ["NativeBridge"],
-                resources: [.copy("Resources")]),
+                resources: [.copy("Resources")],
+                linkerSettings: [.linkedFramework("Security")]),
         .executableTarget(name: "ClavuneApp", dependencies: ["ClavuneCore"]),
-        .testTarget(name: "ClavuneCoreTests", dependencies: ["ClavuneCore", "NativeBridge", "ClavuneApp"])
+        .testTarget(name: "ClavuneCoreTests", dependencies: ["ClavuneCore", "NativeBridge", "ClavuneApp"],
+                    resources: [.copy("Fixtures")])
     ],
     cxxLanguageStandard: .cxx17
 )

@@ -38,6 +38,7 @@ class PackagingTests(unittest.TestCase):
         (self.root / "ThirdPartyLicenses").mkdir()
         (self.root / "ThirdPartyLicenses/fixture.txt").write_text("synthetic license")
         (self.root / "THIRD_PARTY_NOTICES.md").write_text("synthetic notices")
+        (self.root / "LICENSE").write_text("synthetic project MIT license")
         self.final = self.root / "artifacts/Clavune.app"
         self.commands = []
 
@@ -73,7 +74,15 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(result, self.final)
         info = plistlib.loads((self.final / "Contents/Info.plist").read_bytes())
         self.assertEqual(info["CFBundleExecutable"], "Clavune")
+        self.assertIs(info["LSUIElement"], False, "Desktop app must appear in Dock.")
         self.assertEqual((self.binary_directory / "Clavune").read_bytes(), original)
+        self.assertEqual((self.final / "Contents/Resources/LICENSE").read_bytes(),
+                         (self.root / "LICENSE").read_bytes())
+        self.assertEqual((self.final / "Contents/Resources/THIRD_PARTY_NOTICES.md").read_bytes(),
+                         (self.root / "THIRD_PARTY_NOTICES.md").read_bytes())
+        self.assertEqual(self.commands[0][:4], ["/usr/bin/codesign", "--force", "--sign", "-"])
+        self.assertIn(".Clavune-stage-", self.commands[0][-1])
+        self.assertEqual(self.commands[1][1:3], ["--verify", "--strict"])
         self.assertNoStaging()
 
     def test_signing_failure_cleans_owned_staging_and_allows_retry(self):
@@ -90,6 +99,16 @@ class PackagingTests(unittest.TestCase):
         packaging.package_app(self.root, self.binary_directory, run=self.runner, publish=self.publisher)
         self.assertTrue(self.final.is_dir())
         self.assertEqual(sentinel.read_text(), "keep")
+        self.assertNoStaging()
+
+    def test_missing_project_license_fails_before_signing_or_publication(self):
+        (self.root / "LICENSE").unlink()
+        runner, publisher = Mock(), Mock()
+        with self.assertRaises(FileNotFoundError):
+            packaging.package_app(self.root, self.binary_directory, run=runner, publish=publisher)
+        runner.assert_not_called()
+        publisher.assert_not_called()
+        self.assertFalse(self.final.exists())
         self.assertNoStaging()
 
     def test_audit_failure_leaves_no_partial_final_app(self):

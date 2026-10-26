@@ -9,11 +9,17 @@ public final class AudioConversion {
     private let output: AVAudioPCMBuffer
     private let store: UnsafeMutablePointer<Float>
     private let capacity: Int
+    private let permitsBoundedPrefix: Bool
     public private(set) var count = 0
     private var ended = false
     public let sourceRate: Double
 
-    public init(sourceRate: Double, policy: ResourcePolicy) throws {
+    public convenience init(sourceRate: Double, policy: ResourcePolicy) throws {
+        try self.init(sourceRate: sourceRate, policy: policy, permitsBoundedPrefix: false)
+    }
+    /// Live capture alone bounds native input first, then retains at most maxSamples.
+    /// File import and other callers remain strict: excess output is an error.
+    init(sourceRate: Double, policy: ResourcePolicy, permitsBoundedPrefix: Bool) throws {
         guard sourceRate.isFinite, (8000...192000).contains(sourceRate),
               let src = AVAudioFormat(standardFormatWithSampleRate: sourceRate, channels: 1),
               let dst = AVAudioFormat(standardFormatWithSampleRate: Double(policy.sampleRate), channels: 1),
@@ -22,15 +28,24 @@ public final class AudioConversion {
               let o = AVAudioPCMBuffer(pcmFormat: dst, frameCapacity: 8192)
         else { throw DictationError.unsupportedFormat }
         self.sourceRate = sourceRate; converter = c; input = i; output = o
+        self.permitsBoundedPrefix = permitsBoundedPrefix
         capacity = policy.maxSamples
         store = .allocate(capacity: capacity)
         store.initialize(repeating: 0, count: capacity)
     }
     deinit { store.deinitialize(count: capacity); store.deallocate() }
 
-    public func append(_ frames: UnsafeBufferPointer<Float>) throws {
-        guard !ended, frames.count <= Int(input.frameCapacity), frames.allSatisfy(\.isFinite),
+    @discardableResult
+    public func append(_ frames: UnsafeBufferPointer<Float>) throws -> Float {
+        guard !ended, frames.count <= Int(input.frameCapacity),
               let dest = input.floatChannelData?[0] else { throw DictationError.unsupportedFormat }
+        // Validate the entire accepted native block before changing converter state.
+        // Return its raw peak only after conversion accepts the complete input.
+        var peak: Float = 0
+        for value in frames {
+            guard value.isFinite else { throw DictationError.unsupportedFormat }
+            peak = max(peak, abs(value))
+        }
         // The input provider honors requested packet counts and advances once.
         var cursor = 0
         var iterations = 0
@@ -55,7 +70,7 @@ public final class AudioConversion {
             if error != nil || status == .error { throw DictationError.audioUnavailable }
             if status == .inputRanDry {
                 guard cursor == frames.count else { throw DictationError.discontinuity }
-                return
+                return peak
             }
             if status == .endOfStream { throw DictationError.discontinuity }
         }
@@ -80,10 +95,13 @@ public final class AudioConversion {
     }
     private func consumeOutput() throws {
         let n = Int(output.frameLength)
-        guard count + n <= capacity else { throw DictationError.durationLimit }
-        if n > 0, let src = output.floatChannelData?[0] {
+        guard permitsBoundedPrefix || count + n <= capacity else { throw DictationError.durationLimit }
+        if n > 0 {
+            guard let src = output.floatChannelData?[0] else { throw DictationError.unsupportedFormat }
+            // Validate even converter tail samples outside the retained prefix.
             for i in 0..<n where !src[i].isFinite { throw DictationError.unsupportedFormat }
-            store.advanced(by: count).update(from: src, count: n); count += n
+            let retained = min(n, capacity - count)
+            store.advanced(by: count).update(from: src, count: retained); count += retained
         }
         output.frameLength = 0
     }

@@ -40,12 +40,24 @@ public enum AudioDeviceRegistry {
     }
 }
 
+public enum CaptureCompletionReason: Equatable, Sendable {
+    case requestedStop, sessionLimit
+}
+
 public struct CapturedAudio: Sendable {
     public let pcm: SessionPCM
     public let firstHostTime: UInt64
     public let stopHostTime: UInt64
     public let closedHostTime: UInt64
     public let nativeRate: Double
+    public let completionReason: CaptureCompletionReason
+    public init(pcm: SessionPCM, firstHostTime: UInt64, stopHostTime: UInt64,
+                closedHostTime: UInt64, nativeRate: Double,
+                completionReason: CaptureCompletionReason = .requestedStop) {
+        self.pcm = pcm; self.firstHostTime = firstHostTime; self.stopHostTime = stopHostTime
+        self.closedHostTime = closedHostTime; self.nativeRate = nativeRate
+        self.completionReason = completionReason
+    }
 }
 
 private final class Ingress: @unchecked Sendable {
@@ -62,7 +74,8 @@ public protocol CaptureServicing: CaptureStopping {
     func start(session: UUID, deviceID: AudioDeviceID?, channel: Int, policy: ResourcePolicy,
                authorization: CaptureStartupGate, onFirstSample: @escaping @Sendable () -> Void,
                onProgress: @escaping @Sendable (Double, Float) -> Void,
-               onFailure: @escaping @Sendable (DictationError) -> Void) async throws
+               onFailure: @escaping @Sendable (DictationError) -> Void,
+               onLimitReached: @escaping @Sendable (CaptureStopRequest) -> Void) async throws
     func cancel(session: UUID?) async
 }
 
@@ -88,6 +101,7 @@ struct CaptureRunConfiguration {
     let onFirst: @Sendable () -> Void
     let onProgress: @Sendable (Double, Float) -> Void
     let onFailure: @Sendable (DictationError) -> Void
+    let onLimitReached: @Sendable (CaptureStopRequest) -> Void
 }
 
 /// All AVAudioEngine lifecycle work and conversion is serialized on queue.
@@ -106,7 +120,8 @@ public final class CaptureService: CaptureServicing, @unchecked Sendable {
                       try CaptureSession(id: configuration.id, queue: configuration.queue,
                           deviceID: configuration.deviceID, channel: configuration.channel,
                           policy: configuration.policy, onFirst: configuration.onFirst,
-                          onProgress: configuration.onProgress, onFailure: configuration.onFailure)
+                          onProgress: configuration.onProgress, onFailure: configuration.onFailure,
+                          onLimitReached: configuration.onLimitReached)
                   })
     }
     /// Internal composition seam: tests replace resources/delivery, never the service algorithm.
@@ -122,7 +137,8 @@ public final class CaptureService: CaptureServicing, @unchecked Sendable {
                       authorization: CaptureStartupGate,
                       onFirstSample: @escaping @Sendable () -> Void,
                       onProgress: @escaping @Sendable (Double, Float) -> Void,
-                      onFailure: @escaping @Sendable (DictationError) -> Void) async throws {
+                      onFailure: @escaping @Sendable (DictationError) -> Void,
+                      onLimitReached: @escaping @Sendable (CaptureStopRequest) -> Void) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             enqueue {
                 guard self.active == nil else { continuation.resume(throwing: DictationError.busy); return }
@@ -131,7 +147,7 @@ public final class CaptureService: CaptureServicing, @unchecked Sendable {
                     try authorization.check(privacyAllowsCapture: self.privacyAllowsCapture)
                     let run = try self.makeRun(CaptureRunConfiguration(id: session, queue: self.queue,
                         deviceID: deviceID, channel: channel, policy: policy, onFirst: onFirstSample,
-                        onProgress: onProgress, onFailure: onFailure))
+                        onProgress: onProgress, onFailure: onFailure, onLimitReached: onLimitReached))
                     acquired = run; self.active = run
                     run.onFinished = { [weak owner = self, weak run] in
                         if let run, owner?.active === run { owner?.active = nil }
@@ -180,15 +196,14 @@ private final class CaptureSession: CaptureRunning {
     let queue: DispatchQueue
     let ingress: Ingress
     let policy: ResourcePolicy
-    let converter: AudioConversion
+    private var buffer: LiveCaptureBuffer?
     let rate: Double
     private let scratch: UnsafeMutablePointer<Float>
-    private var endpoint = AudioEndpoint()
+    private var limitHandoff = CaptureLimitHandoff()
     private var timer: DispatchSourceTimer?
     private var configurationObserver: NSObjectProtocol?
     private var stopCompletion: CheckedContinuation<CapturedAudio, Error>?
-    private var cutoff: UInt64?
-    private var cutoffSeconds: Double?
+    private var requestedCutoff: UInt64?
     private var startSeconds: Double = 0
     private var lastProgress = 0.0
     private var meterPeak = CapturePeakAccumulator()
@@ -197,13 +212,16 @@ private final class CaptureSession: CaptureRunning {
     private let onFirst: @Sendable () -> Void
     private let onProgress: @Sendable (Double, Float) -> Void
     private let onFailure: @Sendable (DictationError) -> Void
+    private let onLimitReached: @Sendable (CaptureStopRequest) -> Void
     var onFinished: (() -> Void)?
 
     init(id: UUID, queue: DispatchQueue, deviceID: AudioDeviceID?, channel: Int, policy: ResourcePolicy,
          onFirst: @escaping @Sendable () -> Void, onProgress: @escaping @Sendable (Double, Float) -> Void,
-         onFailure: @escaping @Sendable (DictationError) -> Void) throws {
+         onFailure: @escaping @Sendable (DictationError) -> Void,
+         onLimitReached: @escaping @Sendable (CaptureStopRequest) -> Void) throws {
         self.id = id; self.queue = queue; self.policy = policy
         self.onFirst = onFirst; self.onProgress = onProgress; self.onFailure = onFailure
+        self.onLimitReached = onLimitReached
         ingress = try Ingress(policy: policy)
         let input = engine.inputNode
         if var device = deviceID {
@@ -219,7 +237,6 @@ private final class CaptureSession: CaptureRunning {
               channel >= 0, channel < Int(format.channelCount)
         else { throw DictationError.unsupportedFormat }
         rate = format.sampleRate
-        converter = try AudioConversion(sourceRate: rate, policy: policy)
         scratch = .allocate(capacity: policy.maxNativeBlockFrames)
         scratch.initialize(repeating: 0, count: policy.maxNativeBlockFrames)
         let ring = ingress
@@ -242,8 +259,9 @@ private final class CaptureSession: CaptureRunning {
         scratch.deinitialize(count: policy.maxNativeBlockFrames); scratch.deallocate()
         if let configurationObserver { NotificationCenter.default.removeObserver(configurationObserver) }
     }
-    func prepare() {
+    func prepare() throws {
         startSeconds = AVAudioTime.seconds(forHostTime: mach_absolute_time())
+        buffer = try LiveCaptureBuffer(rate: rate, policy: policy, startSeconds: startSeconds)
         engine.prepare()
     }
     func start() throws { try engine.start() }
@@ -255,15 +273,20 @@ private final class CaptureSession: CaptureRunning {
         timer = clock; clock.resume()
     }
     func stop(cutoff: UInt64, completion: CheckedContinuation<CapturedAudio, Error>) {
+        if limitHandoff.isPending {
+            do { completion.resume(returning: try limitHandoff.take(cutoffHostTime: cutoff)) }
+            catch { completion.resume(throwing: error) }
+            onFinished?()
+            return
+        }
         guard !closed, stopCompletion == nil else { completion.resume(throwing: DictationError.busy); return }
-        self.cutoff = cutoff; cutoffSeconds = AVAudioTime.seconds(forHostTime: cutoff)
-        stopCompletion = completion
-        do { try endpoint.requireUnprocessedCutoff(AVAudioTime.seconds(forHostTime: cutoff)) }
+        requestedCutoff = cutoff; stopCompletion = completion
+        do { try buffer?.requestStop(at: AVAudioTime.seconds(forHostTime: cutoff)) }
         catch { abort(.endpointUncertain); return }
         pump()
     }
     private func pump() {
-        guard !closed else { return }
+        guard !closed, let buffer else { return }
         do {
             if ow_ring_losses(ingress.pointer) != 0 { throw DictationError.overflow }
             var block = ow_block()
@@ -273,43 +296,53 @@ private final class CaptureSession: CaptureRunning {
                 let rc = ow_ring_pop(ingress.pointer, scratch, UInt32(policy.maxNativeBlockFrames), &block)
                 if rc == 0 { break }
                 guard rc == 1 else { throw DictationError.overflow }
-                let accepted = try endpoint.accept(frames: Int(block.frames),
+                let peak = try buffer.append(UnsafeBufferPointer(start: scratch, count: Int(block.frames)),
                     sampleTime: block.sample_valid == 1 ? block.sample_time : nil,
-                    hostSeconds: block.host_valid == 1 ? AVAudioTime.seconds(forHostTime: block.host_time) : nil,
-                    rate: rate, cutoff: cutoffSeconds)
-                if accepted > 0 {
-                    try converter.append(UnsafeBufferPointer(start: scratch, count: accepted))
-                    for i in 0..<accepted { level = max(level, abs(scratch[i])) }
-                    if !firstDelivered { firstDelivered = true; onFirst() }
-                }
-                if let cutoffSeconds, endpoint.covers(cutoffSeconds) { break }
+                    hostSeconds: block.host_valid == 1 ? AVAudioTime.seconds(forHostTime: block.host_time) : nil)
+                level = max(level, peak)
+                if buffer.acceptedNativeFrames > 0, !firstDelivered { firstDelivered = true; onFirst() }
+                if buffer.endIsCovered { break }
             }
             meterPeak.observe(level)
             let now = AVAudioTime.seconds(forHostTime: mach_absolute_time())
             if !firstDelivered && now - startSeconds >= policy.firstBufferTimeoutSeconds { throw DictationError.audioUnavailable }
-            if now - startSeconds >= Double(policy.sessionLimitSeconds) { throw DictationError.durationLimit }
+            if try buffer.shouldFinish(now: now) { complete(buffer); return }
             if now - lastProgress >= 0.1 {
                 lastProgress = now
-                onProgress(Double(converter.count) / Double(policy.sampleRate), meterPeak.take())
-            }
-            if let cutoffSeconds {
-                if endpoint.covers(cutoffSeconds) { try complete() }
-                else if now - cutoffSeconds >= policy.stopDrainTimeoutSeconds { throw DictationError.endpointUncertain }
+                onProgress(Double(buffer.count) / Double(policy.sampleRate), meterPeak.take())
             }
         } catch { abort((error as? DictationError) ?? .audioUnavailable) }
     }
-    private func complete() throws {
-        guard let cutoff, let completion = stopCompletion else { throw DictationError.endpointUncertain }
+    private func complete(_ buffer: LiveCaptureBuffer) {
+        // Closure precedes conversion flush, notification and all inference admission.
         shutdown()
         let closedAt = mach_absolute_time()
+        let completion = stopCompletion; stopCompletion = nil
         do {
-            let pcm = try converter.finish()
-            stopCompletion = nil
-            completion.resume(returning: CapturedAudio(pcm: pcm, firstHostTime: ow_ring_first_host(ingress.pointer),
-                stopHostTime: cutoff, closedHostTime: closedAt, nativeRate: rate))
-            onFinished?()
+            // A loss observed during this pump is not a successful limit completion.
+            guard ow_ring_losses(ingress.pointer) == 0 else { throw DictationError.overflow }
+            let pcm = try buffer.finish()
+            let reason = buffer.completionReason
+            let cutoff: UInt64
+            if reason == .requestedStop {
+                guard let requestedCutoff else { throw DictationError.endpointUncertain }
+                cutoff = requestedCutoff
+            } else { cutoff = AVAudioTime.hostTime(forSeconds: buffer.endSeconds) }
+            let audio = CapturedAudio(pcm: pcm, firstHostTime: ow_ring_first_host(ingress.pointer),
+                stopHostTime: cutoff, closedHostTime: closedAt, nativeRate: rate, completionReason: reason)
+            self.buffer = nil
+            if let completion {
+                completion.resume(returning: audio); onFinished?()
+            } else {
+                try limitHandoff.publish(audio)
+                // Keep the bounded result until stop/cancel consumes it; microphone is closed.
+                onLimitReached(CaptureStopRequest(session: id, cutoffHostTime: cutoff))
+            }
         } catch {
-            stopCompletion = nil; completion.resume(throwing: error); onFinished?()
+            self.buffer = nil
+            if let completion { completion.resume(throwing: error) }
+            else { onFailure((error as? DictationError) ?? .audioUnavailable) }
+            onFinished?()
         }
     }
     func shutdown() {
@@ -323,8 +356,15 @@ private final class CaptureSession: CaptureRunning {
         configurationObserver = nil
     }
     func abort(_ error: DictationError) {
-        guard !closed else { return }
-        shutdown()
+        // Only cancellation may consume a closed automatic result. Late device
+        // notifications cannot invalidate an already-finalized prefix.
+        if closed {
+            if error == .cancelled, limitHandoff.isPending {
+                limitHandoff.cancel(); onFinished?()
+            }
+            return
+        }
+        shutdown(); buffer = nil; limitHandoff.cancel()
         if let completion = stopCompletion { stopCompletion = nil; completion.resume(throwing: error) }
         else { onFailure(error) }
         onFinished?()

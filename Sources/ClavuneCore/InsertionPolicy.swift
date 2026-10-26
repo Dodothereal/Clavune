@@ -31,7 +31,7 @@ public enum InsertionIntent: Sendable { case reviewOnly, insertAtCaret, replaceS
 public enum InsertionDecision: Equatable, Sendable {
     case allowSelectedText, reviewRequired, targetChanged, unsafeTarget, unsupportedSelection, unsupportedCapability, alreadyAttempted
 }
-public enum InsertionOutcome: Sendable { case verified, dispatchedUnverified, outcomeUnknown, failedBeforeMutation }
+public enum InsertionOutcome: Equatable, Sendable { case verified, dispatchedUnverified, outcomeUnknown, failedBeforeMutation }
 
 /// One bounded commit fence per session/revision. No repeat is allowed after reservation.
 public struct InsertionFence: Sendable {

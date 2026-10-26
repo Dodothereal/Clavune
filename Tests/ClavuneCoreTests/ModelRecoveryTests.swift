@@ -47,6 +47,7 @@ final class ModelRecoveryTests: XCTestCase {
         let installed = try ModelStore.importModel(source, into: directory, candidates: [candidate])
         let backup = ModelStore.recoveryBackupURL(in: directory)
         XCTAssertEqual(installed.url, destination)
+        XCTAssertFalse(installed.reusedVerifiedFile)
         XCTAssertEqual(try Data(contentsOf: destination), originalBytes)
         XCTAssertEqual(try Data(contentsOf: source), originalBytes)
         XCTAssertEqual(try Data(contentsOf: backup), corrupt)
@@ -60,7 +61,8 @@ final class ModelRecoveryTests: XCTestCase {
     func testExistingValidModelIsReusedWithoutBackupOrSourceChange() throws {
         try originalBytes.write(to: destination)
         let existingInode = try inode(destination)
-        _ = try ModelStore.importModel(source, into: directory, candidates: [candidate])
+        let installed = try ModelStore.importModel(source, into: directory, candidates: [candidate])
+        XCTAssertTrue(installed.reusedVerifiedFile)
         XCTAssertEqual(try inode(destination), existingInode)
         XCTAssertEqual(try Data(contentsOf: source), originalBytes)
         XCTAssertFalse(FileManager.default.fileExists(atPath: ModelStore.recoveryBackupURL(in: directory).path))
@@ -114,4 +116,37 @@ final class ModelRecoveryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: ModelStore.recoveryBackupURL(in: directory).path))
         try assertNoImportTemporary()
     }
+    func testSavedSelectionRestoresOnlyVerifiedManagedFileWithoutMutation() throws {
+        try originalBytes.write(to: destination)
+        let before = try inode(destination)
+        let installed = try ModelStore.restoreSelection(candidate.sha256, in: directory, candidates: [candidate])
+        XCTAssertEqual(installed.url, destination)
+        XCTAssertEqual(installed.candidate.sha256, candidate.sha256)
+        XCTAssertFalse(installed.reusedVerifiedFile)
+        XCTAssertEqual(try inode(destination), before)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), [candidate.sha256 + ".bin"])
+    }
+    func testSavedSelectionRejectsCorruptFileAndPreservesBackup() throws {
+        let corrupt = Data("bad".utf8)
+        try corrupt.write(to: destination)
+        let backup = ModelStore.recoveryBackupURL(in: directory)
+        try originalBytes.write(to: backup)
+        XCTAssertThrowsError(try ModelStore.restoreSelection(candidate.sha256, in: directory, candidates: [candidate]))
+        XCTAssertEqual(try Data(contentsOf: destination), corrupt)
+        XCTAssertEqual(try Data(contentsOf: backup), originalBytes)
+    }
+    func testSavedSelectionDoesNotUseMissingDestinationBackupOrUnknownPath() throws {
+        let backup = ModelStore.recoveryBackupURL(in: directory)
+        try originalBytes.write(to: backup)
+        XCTAssertThrowsError(try ModelStore.restoreSelection(candidate.sha256, in: directory, candidates: [candidate]))
+        XCTAssertThrowsError(try ModelStore.restoreSelection("../original-fixture", in: directory, candidates: [candidate]))
+        XCTAssertEqual(try Data(contentsOf: backup), originalBytes)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+    func testSavedSelectionRejectsSymbolicLinkEvenWithVerifiedTarget() throws {
+        try FileManager.default.createSymbolicLink(at: destination, withDestinationURL: source)
+        XCTAssertThrowsError(try ModelStore.restoreSelection(candidate.sha256, in: directory, candidates: [candidate]))
+        XCTAssertEqual(try Data(contentsOf: source), originalBytes)
+    }
+
 }

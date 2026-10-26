@@ -73,6 +73,9 @@ extern "C" ow_result * ow_engine_decode(ow_engine * e, ow_cancel * cancel,
         std::unique_ptr<whisper_state, decltype(&whisper_free_state)>
             state(whisper_init_state(e->context), whisper_free_state);
         if (!state) return result.release();
+        // State construction is not interruptible here. If cancellation arrived
+        // during it, release the new state without entering upstream log-mel work.
+        if (aborted(cancel)) { result->status = 1; return result.release(); }
         auto p = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
         p.n_threads = threads; p.language = language; p.detect_language = false;
         p.translate = false; p.no_context = true;
@@ -94,8 +97,14 @@ extern "C" ow_result * ow_engine_decode(ow_engine * e, ow_cancel * cancel,
             const char * text = whisper_full_get_segment_text_from_state(state.get(), i);
             if (text) result->text += text;
         }
+        // Cancellation can arrive while extracting/copying segments after the
+        // post-decode check above. Do not return success for that result.
+        if (aborted(cancel)) {
+            result->text.clear(); result->language = -1; result->status = 1;
+            return result.release();
+        }
         result->status = 0;
-    } catch (...) { result->text.clear(); result->status = 3; }
+    } catch (...) { result->text.clear(); result->language = -1; result->status = 3; }
     return result.release();
 }
 extern "C" int ow_result_status(const ow_result * r) { return r ? r->status : 3; }

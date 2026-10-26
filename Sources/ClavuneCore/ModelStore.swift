@@ -10,8 +10,43 @@ public struct ModelCandidate: Codable, Identifiable, Sendable {
     public let role: String
     public let license: String
     public let qualityGate: String
+    public let sourceURL: URL?
+    public let sourceRevision: String?
+    public let downloadEnabled: Bool
+
+    public init(fileName: String, sizeBytes: Int64, sha256: String, role: String,
+                license: String, qualityGate: String, sourceURL: URL? = nil,
+                sourceRevision: String? = nil, downloadEnabled: Bool = false) {
+        self.fileName = fileName; self.sizeBytes = sizeBytes; self.sha256 = sha256
+        self.role = role; self.license = license; self.qualityGate = qualityGate
+        self.sourceURL = sourceURL; self.sourceRevision = sourceRevision
+        self.downloadEnabled = downloadEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case fileName, sizeBytes, sha256, role, license, qualityGate
+        case sourceURL, sourceRevision, downloadEnabled
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        fileName = try values.decode(String.self, forKey: .fileName)
+        sizeBytes = try values.decode(Int64.self, forKey: .sizeBytes)
+        sha256 = try values.decode(String.self, forKey: .sha256)
+        role = try values.decode(String.self, forKey: .role)
+        license = try values.decode(String.self, forKey: .license)
+        qualityGate = try values.decode(String.self, forKey: .qualityGate)
+        sourceURL = try values.decodeIfPresent(URL.self, forKey: .sourceURL)
+        sourceRevision = try values.decodeIfPresent(String.self, forKey: .sourceRevision)
+        // Older generated/test catalogues must remain non-downloadable by default.
+        downloadEnabled = try values.decodeIfPresent(Bool.self, forKey: .downloadEnabled) ?? false
+    }
 }
-private struct ModelManifest: Decodable { let models: [ModelCandidate] }
+public struct ModelCatalogue: Decodable, Sendable {
+    public let models: [ModelCandidate]
+    public let releaseApproved: Bool
+    public let defaultModel: String?
+}
 
 public enum ModelStore {
     public enum RecoveryError: Error, LocalizedError, Equatable, Sendable {
@@ -37,6 +72,14 @@ public enum ModelStore {
     public struct Installed: Sendable {
         public let url: URL
         public let candidate: ModelCandidate
+        /// True only after import verifies and reuses an existing managed inode.
+        /// This is per-import provenance, not identity of an already-loaded engine.
+        /// New activation, same-hash recovery, and read-only restoration are false.
+        public let reusedVerifiedFile: Bool
+        init(url: URL, candidate: ModelCandidate, reusedVerifiedFile: Bool = false) {
+            self.url = url; self.candidate = candidate
+            self.reusedVerifiedFile = reusedVerifiedFile
+        }
     }
     public static func importModel(_ source: URL, into directory: URL, candidates: [ModelCandidate]) throws -> Installed {
         try Task.checkCancellation()
@@ -67,9 +110,34 @@ public enum ModelStore {
         }
         // Verify the actual private copy, not an earlier snapshot of a mutable external file.
         let candidate = try verify(temporary, candidates: candidates)
+        return try installVerifiedTemporary(temporary, candidate: candidate, in: directory,
+            replacementBudget: candidates.map(\.sizeBytes).max() ?? candidate.sizeBytes)
+    }
+
+    /// Installs only a completed download staged in this managed directory. The
+    /// caller must retain partial bytes on cancellation and pass this gate only
+    /// after the bounded transfer completed; this method still verifies them.
+    static func installVerifiedDownload(_ downloaded: URL, candidate: ModelCandidate,
+                                        into directory: URL,
+                                        beforeActivation: (@Sendable () throws -> Void)? = nil) throws -> Installed {
+        try Task.checkCancellation()
+        let expectedName = ".download-\(candidate.sha256).part"
+        guard downloaded.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL,
+              downloaded.lastPathComponent == expectedName else { throw DictationError.modelInvalid }
+        let verified = try verify(downloaded, candidates: [candidate])
+        let catalogueBudget = try Self.candidates().map(\.sizeBytes).max() ?? verified.sizeBytes
+        try beforeActivation?()
+        try Task.checkCancellation()
+        return try installVerifiedTemporary(downloaded, candidate: verified, in: directory,
+            replacementBudget: max(catalogueBudget, verified.sizeBytes))
+    }
+
+    private static func installVerifiedTemporary(_ temporary: URL, candidate: ModelCandidate,
+                                                 in directory: URL, replacementBudget: Int64) throws -> Installed {
         let destination = directory.appendingPathComponent(candidate.sha256 + ".bin")
         try Task.checkCancellation()
         try FileManager.default.setAttributes([.posixPermissions: 0o400], ofItemAtPath: temporary.path)
+        try Task.checkCancellation()
         if FileManager.default.fileExists(atPath: destination.path) {
             let existing = try FileManager.default.attributesOfItem(atPath: destination.path)
             guard existing[.type] as? FileAttributeType == .typeRegular else {
@@ -78,7 +146,7 @@ public enum ModelStore {
             do {
                 _ = try verify(destination, candidates: [candidate])
                 // Reuse a valid existing inode; do not modify it or create a backup.
-                return Installed(url: destination, candidate: candidate)
+                return Installed(url: destination, candidate: candidate, reusedVerifiedFile: true)
             } catch DictationError.modelMismatch {
                 let current = try FileManager.default.attributesOfItem(atPath: destination.path)
                 guard current[.type] as? FileAttributeType == .typeRegular else {
@@ -91,9 +159,8 @@ public enum ModelStore {
                       originalInode == currentInode, originalVolume == currentVolume else {
                     throw RecoveryError.preservationFailed
                 }
-                let budget = candidates.map(\.sizeBytes).max() ?? 0
                 guard let existingSize = current[.size] as? NSNumber,
-                      existingSize.int64Value >= 0, existingSize.int64Value <= budget else {
+                      existingSize.int64Value >= 0, existingSize.int64Value <= replacementBudget else {
                     throw RecoveryError.existingFileExceedsBudget
                 }
                 try Task.checkCancellation()
@@ -101,9 +168,23 @@ public enum ModelStore {
             }
         } else {
             // Exclusive rename also refuses a dangling link or a concurrently appearing entry.
+            try Task.checkCancellation()
             try renameWithoutReplacing(temporary, to: destination)
         }
         return Installed(url: destination, candidate: candidate)
+    }
+    /// Read-only restoration of an explicit catalog selection. Never follows a
+    /// user-supplied path or activates a recovery backup automatically.
+    public static func restoreSelection(_ hash: String, in directory: URL,
+                                        candidates: [ModelCandidate]) throws -> Installed {
+        try Task.checkCancellation()
+        guard let candidate = candidates.first(where: { $0.sha256 == hash }),
+              hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) }) else {
+            throw DictationError.modelMismatch
+        }
+        let url = directory.appendingPathComponent(hash + ".bin")
+        let verified = try verify(url, candidates: [candidate])
+        return Installed(url: url, candidate: verified)
     }
     /// A single managed backup for the entire model directory, not an accumulating history.
     public static func recoveryBackupURL(in directory: URL) -> URL {
@@ -144,9 +225,12 @@ public enum ModelStore {
         guard code == 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(code)) }
     }
     public static func candidates() throws -> [ModelCandidate] {
+        try catalogue().models
+    }
+    public static func catalogue() throws -> ModelCatalogue {
         guard let url = Bundle.module.url(forResource: "candidates", withExtension: "json", subdirectory: "Resources")
         else { throw DictationError.configuration }
-        return try JSONDecoder().decode(ModelManifest.self, from: Data(contentsOf: url)).models
+        return try JSONDecoder().decode(ModelCatalogue.self, from: Data(contentsOf: url))
     }
     /// Streaming hash off the UI thread; original models are never modified.
     public static func verify(_ url: URL, candidates: [ModelCandidate]) throws -> ModelCandidate {

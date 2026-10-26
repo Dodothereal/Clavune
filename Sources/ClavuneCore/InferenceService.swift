@@ -15,6 +15,9 @@ public struct TranscriptionResult: Sendable {
     public let text: String
     public let languageID: Int
     public let decodeSeconds: Double
+    public init(text: String, languageID: Int, decodeSeconds: Double) {
+        self.text = text; self.languageID = languageID; self.decodeSeconds = decodeSeconds
+    }
 }
 
 public protocol InferenceServicing: Sendable {
@@ -30,12 +33,18 @@ public final class InferenceService: InferenceServicing, @unchecked Sendable {
     private let queue = DispatchQueue(label: "org.clavune.inference", qos: .userInitiated)
     private var engine: OpaquePointer?
     private var modelHash: String?
-    public init() {}
+    private let measurement: EfficiencyRecorder?
+    public init(measurement: EfficiencyRecorder? = nil) { self.measurement = measurement }
     deinit { if let engine { ow_engine_destroy(engine) } }
     public func load(url: URL, candidate: ModelCandidate) async throws -> (warm: Bool, seconds: Double) {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(warm: Bool, seconds: Double), Error>) in
+        let ticket = measurement?.ticket()
+        ticket?.mark(.load_submission_requested)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(warm: Bool, seconds: Double), Error>) in
             queue.async {
+                ticket?.mark(.load_queue_started)
+                defer { ticket?.mark(.load_work_drained) }
                 if self.engine != nil, self.modelHash == candidate.sha256 {
+                    ticket?.mark(.model_context_reused)
                     continuation.resume(returning: (true, 0)); return
                 }
                 if let previous = self.engine { ow_engine_destroy(previous) }
@@ -54,8 +63,13 @@ public final class InferenceService: InferenceServicing, @unchecked Sendable {
         guard !pcm.samples.isEmpty, pcm.samples.count <= policy.maxSamples else {
             throw DictationError.noAudio
         }
+        let ticket = measurement?.ticket()
+        ticket?.mark(.decode_submission_requested)
         return try await withCheckedThrowingContinuation { continuation in
             queue.async {
+                ticket?.mark(.decode_queue_started)
+                // Registered first: Swift executes output destruction's later defer first.
+                defer { ticket?.mark(.decode_work_drained) }
                 guard let engine = self.engine else {
                     continuation.resume(throwing: DictationError.modelMissing); return
                 }
@@ -75,13 +89,27 @@ public final class InferenceService: InferenceServicing, @unchecked Sendable {
                 let result = TranscriptionResult(text: String(cString: ow_result_text(output)),
                     languageID: Int(ow_result_language(output)),
                     decodeSeconds: Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9)
+                ticket?.mark(.decode_result_created)
                 continuation.resume(returning: result)
             }
         }
     }
+    /// Development harness queue barrier only. It does not unload the reusable model context.
+    /// Await after a returned/throwing operation before finishing the matching ticket.
+    /// Prior queue work and result destruction precede this barrier. This does not prove
+    /// release of every retained PCM/framework owner, process exit, or successful transcription.
+    public func drainForMeasurement() async {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume() }
+        }
+    }
     public func unload() async {
+        let ticket = measurement?.ticket()
+        ticket?.mark(.unload_submission_requested)
         await withCheckedContinuation { continuation in
             queue.async {
+                ticket?.mark(.unload_queue_started)
+                defer { ticket?.mark(.unload_work_drained) }
                 if let engine = self.engine { ow_engine_destroy(engine) }
                 self.engine = nil; self.modelHash = nil
                 continuation.resume()

@@ -72,6 +72,8 @@ int state_frees = 0;
 int decode_calls = 0;
 int log_calls = 0;
 int defaults_calls = 0;
+// Test-only trigger: cancellation is raised after a successful fake state acquire.
+ow_cancel * state_init_cancel_target = nullptr;
 const char * expected_language = "auto";
 int expected_threads = 2;
 int expected_samples = 3;
@@ -91,6 +93,7 @@ void reset_case() {
     patch_revision = 1;
     model_calls = context_frees = state_calls = state_frees = decode_calls = 0;
     log_calls = defaults_calls = 0;
+    state_init_cancel_target = nullptr;
     expected_language = "auto";
     expected_threads = 2;
     expected_samples = 3;
@@ -156,6 +159,7 @@ extern "C" whisper_state * whisper_init_state(whisper_context * context) {
     if (failure == Failure::state_throw) throw 23;
     state_live = true;
     state_resource = {++state_generation, context->identity};
+    if (state_init_cancel_target) ow_cancel_set(state_init_cancel_target);
     return &state_resource;
 }
 extern "C" void whisper_free_state(whisper_state * state) {
@@ -169,7 +173,15 @@ extern "C" whisper_full_params whisper_full_default_params(whisper_sampling_stra
     CONTRACT_CHECK(strategy == WHISPER_SAMPLING_GREEDY);
     whisper_full_params params{};
     params.strategy = strategy;
-    // Defaults not written by the bridge remain deliberately inert in the fake.
+    // Relevant real defaults, not the bridge's desired effective values:
+    // whisper.cpp d1be6fde11ac6e0407606b4e42fe72d34add8037,
+    // src/whisper.cpp::whisper_full_default_params (including its greedy branch).
+    // The pinned source/header hashes are checked by prepare-native-contract-inputs.py.
+    // Other unused defaults remain inert; this is not a simulated decoder.
+    params.print_progress = true;
+    params.print_timestamps = true;
+    params.temperature_inc = 0.2f;
+    params.greedy.best_of = 5;
     return params;
 }
 extern "C" int whisper_full_with_state(whisper_context * context, whisper_state * state,
@@ -180,14 +192,23 @@ extern "C" int whisper_full_with_state(whisper_context * context, whisper_state 
     CONTRACT_CHECK(params.strategy == WHISPER_SAMPLING_GREEDY && params.n_threads == expected_threads);
     CONTRACT_CHECK(params.language && std::strcmp(params.language, expected_language) == 0);
     CONTRACT_CHECK(!params.detect_language && !params.translate && params.no_context);
-    CONTRACT_CHECK(!params.print_progress && !params.print_realtime && !params.print_special && !params.print_timestamps);
+    CONTRACT_CHECK(!params.print_progress);
+    CONTRACT_CHECK(!params.print_timestamps);
+    CONTRACT_CHECK(!params.print_realtime && !params.print_special);
     CONTRACT_CHECK(!params.no_timestamps && !params.token_timestamps && !params.single_segment);
     CONTRACT_CHECK(params.max_tokens == 0 && params.audio_ctx == 0 && !params.debug_mode);
     CONTRACT_CHECK(!params.initial_prompt && !params.prompt_tokens && params.prompt_n_tokens == 0 && !params.carry_initial_prompt);
-    CONTRACT_CHECK(params.temperature == 0.0f && params.temperature_inc == 0.0f && params.greedy.best_of == 1);
+    CONTRACT_CHECK(params.temperature_inc == 0.0f);
+    CONTRACT_CHECK(params.temperature == 0.0f && params.greedy.best_of == 1);
     CONTRACT_CHECK(!params.vad && !params.vad_model_path);
     CONTRACT_CHECK(params.abort_callback && params.abort_callback_user_data);
     CONTRACT_CHECK(params.encoder_begin_callback && params.encoder_begin_callback_user_data == params.abort_callback_user_data);
+    if (state_init_cancel_target) {
+        // Regression-observation path: allow a missing bridge guard to return so
+        // the named test fails specifically on unexpected full-decode admission.
+        CONTRACT_CHECK(params.abort_callback(params.abort_callback_user_data));
+        return 0;
+    }
     CONTRACT_CHECK(!params.abort_callback(params.abort_callback_user_data));
     CONTRACT_CHECK(params.encoder_begin_callback(context, state, params.encoder_begin_callback_user_data));
     if (failure == Failure::cancel_during_decode) {
@@ -198,6 +219,12 @@ extern "C" int whisper_full_with_state(whisper_context * context, whisper_state 
     }
     if (failure == Failure::decode_throw) throw 29;
     return failure == Failure::decode_error ? 4 : 0;
+}
+// Test-only trigger after decode has returned success and the first segment
+// has already been copied into the bridge-owned result.
+namespace {
+ow_cancel * segment_cancel_target = nullptr;
+int segment_cancel_fires = 0;
 }
 extern "C" int whisper_full_lang_id_from_state(whisper_state * state) {
     CONTRACT_CHECK(state == &state_resource && state_live);
@@ -213,9 +240,30 @@ extern "C" const char * whisper_full_get_segment_text_from_state(whisper_state *
     CONTRACT_CHECK(state == &state_resource && state_live && index >= 0 && index < 3);
     if (failure == Failure::text_throw) throw 41;
     if (failure == Failure::text_allocation && index == 0) fail_next_new = true;
+    if (segment_cancel_target && index == 1) {
+        ++segment_cancel_fires;
+        ow_cancel_set(segment_cancel_target);
+    }
     return index == 2 ? nullptr : segments[index];
 }
 
+static void adversarial_decoder_defaults() {
+    reset_case();
+    const auto upstream = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    CONTRACT_CHECK(upstream.print_progress && upstream.print_timestamps);
+    CONTRACT_CHECK(upstream.temperature_inc == 0.2f && upstream.greedy.best_of == 5);
+    reset_case();
+    auto * engine = create_engine();
+    auto * cancel = ow_cancel_create();
+    CONTRACT_CHECK(cancel);
+    auto * result = decode(engine, cancel); // Assertions inspect the effective fake decode parameters.
+    check_result(result, 0, expected_text);
+    CONTRACT_CHECK(defaults_calls == 1 && decode_calls == 1);
+    ow_result_destroy(result);
+    ow_cancel_destroy(cancel);
+    ow_engine_destroy(engine);
+    check_quiescent();
+}
 static void creation_and_allocation_failures() {
     reset_case();
     CONTRACT_CHECK(!ow_engine_create(nullptr, 1) && model_calls == 0 && log_calls == 0);
@@ -308,6 +356,78 @@ static void admission_and_result_allocation() {
     ow_engine_destroy(engine);
     check_quiescent();
 }
+static void cancellation_after_state_acquisition_skips_full_decode() {
+    reset_case();
+    auto * engine = create_engine();
+    auto * cancel = ow_cancel_create();
+    CONTRACT_CHECK(cancel);
+    const int baseline_heap = heap_live;
+    state_init_cancel_target = cancel;
+    auto * result = decode(engine, cancel);
+    state_init_cancel_target = nullptr;
+
+    check_result(result, 1);
+    CONTRACT_CHECK(ow_result_language(result) == -1);
+    CONTRACT_CHECK(decode_calls == 0); // Exact one-site mutation oracle.
+    CONTRACT_CHECK(defaults_calls == 0);
+    CONTRACT_CHECK(state_calls == 1 && state_frees == 1 && !state_live);
+    CONTRACT_CHECK(context_live && context_frees == 0 && model_calls == 1);
+    const int cancelled_full_calls = decode_calls;
+    const int cancelled_state_frees = state_frees;
+    ow_result_destroy(result);
+    CONTRACT_CHECK(heap_live == baseline_heap);
+    ow_cancel_destroy(cancel);
+
+    // A fresh independent request still uses the retained model normally.
+    auto * next_cancel = ow_cancel_create();
+    CONTRACT_CHECK(next_cancel);
+    auto * next_result = decode(engine, next_cancel);
+    check_result(next_result, 0, expected_text);
+    CONTRACT_CHECK(state_calls == 2 && state_frees == 2 && !state_live);
+    CONTRACT_CHECK(decode_calls == 1 && defaults_calls == 1);
+    CONTRACT_CHECK(context_live && context_frees == 0 && model_calls == 1);
+    ow_result_destroy(next_result);
+    ow_cancel_destroy(next_cancel);
+    ow_engine_destroy(engine);
+    CONTRACT_CHECK(context_frees == 1);
+    check_quiescent();
+    std::printf("E1 post_state_cancel expected_full_calls=0 observed_full_calls=%d cancelled_state_frees=%d retained_model_calls=%d final_live_heap=%d\n", cancelled_full_calls, cancelled_state_frees, model_calls, heap_live);
+}
+
+static void cancellation_during_result_extraction_discards_partial_copy() {
+    reset_case();
+    CONTRACT_CHECK(segment_cancel_target == nullptr);
+    segment_cancel_fires = 0;
+    auto * engine = create_engine();
+    auto * cancel = ow_cancel_create();
+    CONTRACT_CHECK(cancel);
+    const int baseline_heap = heap_live;
+    segment_cancel_target = cancel;
+    auto * result = decode(engine, cancel);
+    segment_cancel_target = nullptr;
+
+    CONTRACT_CHECK(segment_cancel_fires == 1);
+    check_result(result, 1); // First segment was copied before cancellation.
+    CONTRACT_CHECK(ow_result_language(result) == -1);
+    CONTRACT_CHECK(state_calls == 1 && state_frees == 1 && !state_live);
+    CONTRACT_CHECK(decode_calls == 1 && context_live && context_frees == 0);
+    ow_result_destroy(result);
+    CONTRACT_CHECK(heap_live == baseline_heap);
+    ow_cancel_destroy(cancel);
+
+    // Cancellation is per request; the retained model remains usable.
+    auto * next_cancel = ow_cancel_create();
+    CONTRACT_CHECK(next_cancel);
+    auto * next_result = decode(engine, next_cancel);
+    check_result(next_result, 0, expected_text);
+    CONTRACT_CHECK(ow_result_language(next_result) == 7);
+    ow_result_destroy(next_result);
+    ow_cancel_destroy(next_cancel);
+    ow_engine_destroy(engine);
+    CONTRACT_CHECK(context_frees == 1);
+    check_quiescent();
+}
+
 static void state_decode_and_result_failure_cleanup() {
     const Failure modes[] = {Failure::state_null, Failure::state_throw, Failure::decode_error,
         Failure::decode_throw, Failure::language_throw, Failure::segments_throw,
@@ -325,6 +445,7 @@ static void state_decode_and_result_failure_cleanup() {
         }
         auto * result = decode(engine, cancel);
         check_result(result, mode == Failure::cancel_during_decode ? 1 : 3);
+        CONTRACT_CHECK(ow_result_language(result) == -1);
         CONTRACT_CHECK(state_calls == 1 && !state_live);
         const bool state_acquired = mode != Failure::state_null && mode != Failure::state_throw;
         CONTRACT_CHECK(state_frees == (state_acquired ? 1 : 0));
@@ -374,8 +495,7 @@ static void successful_copy_and_independent_lifetimes() {
     }
     check_quiescent();
 }
-int main() {
-    clear_optional_environment();
+static void null_boundary_and_provenance() {
     CONTRACT_CHECK(ow_result_status(nullptr) == 3 && ow_result_language(nullptr) == -1);
     CONTRACT_CHECK(std::strcmp(ow_result_text(nullptr), "") == 0);
     ow_result_destroy(nullptr);
@@ -385,11 +505,50 @@ int main() {
     CONTRACT_CHECK(ow_backend_state_ownership_patch_revision() == 1);
     CONTRACT_CHECK(std::strcmp(ow_backend_fingerprint(),
         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") == 0);
-    creation_and_allocation_failures();
-    actual_environment_call_sites();
-    admission_and_result_allocation();
-    state_decode_and_result_failure_cleanup();
-    successful_copy_and_independent_lifetimes();
-    check_quiescent();
-    std::puts("Actual bridge contract passed with fake Whisper entry points: admission/environment, allocation, cancellation, error cleanup, profile forwarding, copied result lifetimes; no backend/model linked.");
+}
+int main(int argc, char ** argv) {
+    struct Test { const char * name; void (*run)(); };
+    const Test tests[] = {
+        {"BridgeContractTests.adversarial_decoder_defaults", adversarial_decoder_defaults},
+        {"BridgeContractTests.null_boundary_and_provenance", null_boundary_and_provenance},
+        {"BridgeContractTests.creation_and_allocation_failures", creation_and_allocation_failures},
+        {"BridgeContractTests.actual_environment_call_sites", actual_environment_call_sites},
+        {"BridgeContractTests.admission_and_result_allocation", admission_and_result_allocation},
+        {"BridgeContractTests.cancellation_after_state_acquisition_skips_full_decode", cancellation_after_state_acquisition_skips_full_decode},
+        {"BridgeContractTests.cancellation_during_result_extraction_discards_partial_copy", cancellation_during_result_extraction_discards_partial_copy},
+        {"BridgeContractTests.state_decode_and_result_failure_cleanup", state_decode_and_result_failure_cleanup},
+        {"BridgeContractTests.successful_copy_and_independent_lifetimes", successful_copy_and_independent_lifetimes},
+    };
+    const char * selected = nullptr;
+    if (argc == 3 && std::strcmp(argv[1], "--test") == 0) selected = argv[2];
+    else if (argc == 2 && std::strcmp(argv[1], "--list-tests") == 0) {
+        for (const auto & test : tests) std::puts(test.name);
+        return 0;
+    } else if (argc != 1) {
+        std::fputs("Usage: bridge-contract [--test exact-name | --list-tests]\n", stderr);
+        return 2;
+    }
+    int count = 0;
+    for (const auto & test : tests) {
+        if (!selected || std::strcmp(selected, test.name) == 0) ++count;
+    }
+    if (count == 0) {
+        std::fputs("No exact native test selected.\n", stderr);
+        return 2;
+    }
+    clear_optional_environment();
+    std::fprintf(stderr, "NATIVE_TEST_COUNT %d\n", count);
+    for (const auto & test : tests) {
+        if (selected && std::strcmp(selected, test.name) != 0) continue;
+        // The flushed START and exact source-bound CONTRACT_CHECK diagnostic bind
+        // an intentional abort to this named case, not to an earlier test's log.
+        std::fprintf(stderr, "NATIVE_TEST_START %s\n", test.name);
+        std::fflush(stderr);
+        test.run();
+        check_quiescent();
+        std::fprintf(stderr, "NATIVE_TEST_PASS %s\n", test.name);
+        std::fflush(stderr);
+    }
+    std::fprintf(stderr, "NATIVE_TEST_COMPLETE %d\n", count);
+    std::puts("Actual bridge contract passed under fake Whisper entry points; no backend/model linked.");
 }

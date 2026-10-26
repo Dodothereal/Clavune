@@ -1,45 +1,98 @@
 # Build and test
 
-Clavune is the selected provisional name. The historical plan uses LocalFlow and OpenWispr. The existing private repository was renamed in place; the local project directory was intentionally left unchanged.
+## Requirements
 
-Developer prerequisites: Apple Silicon, Xcode/Command Line Tools with a macOS SDK supporting macOS 14, Python 3.12+ and CMake. No software is installed by these scripts. End users should not need these tools once a release is validated.
+- Apple Silicon Mac; deployment target macOS 14.0.
+- Xcode or Command Line Tools with a compatible macOS SDK and Swift toolchain.
+- Python 3.12+ and CMake available on PATH.
+- Network access for the pinned backend source on the first uncached build.
 
-From the repository root:
+Scripts do not install these tools, acquire signing credentials, enroll in paid
+programs, download speech models, launch the app, or change security settings.
+The minimum deployment target is not evidence of a successful macOS 14 runtime test.
 
-    bash Scripts/build-backend.sh
-    bash Scripts/swift.sh build --jobs 2
-    bash Scripts/swift.sh test --jobs 2
-    bash Scripts/build-app.sh
+## Check the build identity first
 
-The backend fetch script independently reconstructs the locked source archive and applies only the ordered, SHA-256-locked downstream patches. It compares the entire source inventory, including executable bits, before trusting an existing tree; changed trees are preserved and refused. `python3 Scripts/fetch-backend.py --offline` uses an already verified cached archive. Patch provenance is written only after verification. It builds only the whisper target for arm64/macOS 14, static CPU/Accelerate and Metal support with embedded Metal sources, no Core ML, examples, server, curl or OpenMP. GGML_NATIVE is off.
+The normal development configuration uses:
 
-The Swift wrapper retains SwiftPM sandboxing and keeps cache/security/configuration/output locations inside .build. If the host executor cannot initialize a nested sandbox, obtain normal build execution approval; do not disable the sandbox or security controls.
+```json
+{
+  "bundleIdentifier": "org.clavune.development",
+  "storageDirectory": "Clavune"
+}
+```
 
-The app script stages artifacts/Clavune.app in an owned temporary container, signs it ad hoc with Hardened Runtime and only audio-input entitlement, checks the signature, and audits architecture, minimum OS and dynamic dependencies. Only after signing and audit does an exclusive rename expose the final name. Failures remove only that invocation’s staging container. Existing app artifacts are preserved. It does not launch the app, trigger permissions, notarize, create a signing identity, submit a release, or publish anything.
+These fields are in `Config/Product.json`. A comparison build using the fixed
+`org.clavune.observatory.qa.20261023.adaptive.main.v3` identifier deliberately
+selects synthetic functional QA. It must not be described or distributed as
+normal dictation. Do not reuse a comparison app as a normal build, and do not
+rewrite an already signed bundle to change identity.
 
-An ad-hoc development bundle is not a notarized release. Do not disable Gatekeeper or remove quarantine to make a public download appear supported.
+## Portable checks
 
-Config/Product.json controls package product name, display/bundle identity and packaged storage identity. ProductIdentity.swift is the standalone development fallback. Target/module names are implementation details. Before another rename, keep historical private evidence unchanged and rerun tests and bundle checks.
+```sh
+python3 -B -m unittest discover -s Tests/Python -v
+```
 
-Four project targets: ClavuneApp, ClavuneCore, NativeBridge and ClavuneCoreTests. whisper.cpp's internal CMake targets are dependency build details, not additional app products.
+These inspect source contracts and exercise synthetic tooling. They are useful on
+Linux, but do not compile Swift, exercise AppKit, validate macOS codecs or run the
+native app. Run without Python optimization so integrity assertions remain enabled.
 
-Synthetic tests use generated PCM and temporary files inside the project. They do not use the microphone, load a real model, mutate another app, or run a performance matrix. No synthetic timing is an ASR speed claim.
+## Native build
 
-Additional deterministic checks:
+```sh
+bash Scripts/build-backend.sh
+bash Scripts/swift.sh build --jobs 2
+bash Scripts/swift.sh test --jobs 2 --no-parallel
+bash Scripts/build-app.sh
+```
 
-    python3 -m unittest discover -s Tests/Python -v
-    bash Scripts/test-state-ownership.sh
-    bash Scripts/test-native-contracts.sh
-    bash Scripts/test-native-contracts.sh --sanitize
+The dependency lock pins the whisper.cpp archive and ordered downstream patches.
+Source inventory and hashes are checked before reusing an existing dependency tree.
+An unexpected cache is preserved and rejected, not silently trusted or overwritten.
+For an already available verified archive, `python3 Scripts/fetch-backend.py --offline`
+prepares the source without downloading it. The subsequent CMake configuration uses
+static CPU/Accelerate and Metal support, without a server or cloud SDK.
 
-The native runner uses the installed production ownership helpers with counting fake resources and controlled allocation failures. It does not load a model or inject faults into actual GGML/Metal APIs. See Validation/native-ownership-review.md for the exact distinction. Clipboard tests use unique named pasteboards and never the general clipboard. Model tests use tiny synthetic hash fixtures.
+The Swift wrapper keeps its normal sandbox enabled and writes command evidence to
+task-owned locations under `.build`. A sandbox/tool error is not a reason to disable
+security controls. Do not commit those logs or caches.
 
-The backend build generates a header containing an archive-and-lock fingerprint. The bridge embeds that fingerprint and references the patched upstream revision symbol, providing explicit linkage evidence. Config-only manifest and external archive-only relink probes did not reproduce stale results on Swift 6.4; no cache workaround is claimed.
+Packaging stages an owned app, signs it ad hoc, verifies it and audits its architecture,
+minimum OS, resources, licenses and dynamic dependencies before exposing the result
+under `artifacts/Clavune.app`. Existing artifacts are preserved. Ad-hoc signing is
+not Developer ID signing, notarization or clean-machine installation acceptance.
 
-Prepare a read-only review ZIP from a committed revision:
+## Additional native contracts
 
-    python3 Scripts/prepare-review.py --commit HEAD
+After the backend inputs have been prepared:
 
-Both membership and bytes are read from that immutable commit tree, independent of the current index. Private/build/audio/model paths and personal absolute paths are refused.
+```sh
+bash Scripts/test-state-ownership.sh
+bash Scripts/test-native-contracts.sh
+bash Scripts/test-native-contracts.sh --sanitize
+```
 
-Production coordinator/service integration, exact-source batch and bridge/fake contracts, remaining hardware coverage and deliberate mutation evidence are described in Validation/followup-coverage.md. Scripts/test-regression-sensitivity.py temporarily changes one source site at a time and restores exact bytes in finally blocks; run it only with exclusive source ownership. It retains ignored logs/binary fingerprints and uses an owned temporary build namespace to avoid the observed project-checkpoint/SQLite interaction described in Validation/verification-environment.md. Normal SwiftPM sandboxing remains enabled.
+These use bounded synthetic/fake resources, not a real microphone, speech model
+or GGML/Metal fault injection. Swift offscreen editor tests and native diagnostics
+have separate opt-in flags. Read each fixture before enabling it; a count of
+discovered tests is not a count of tests executed.
+
+## Known limitations
+
+The latest cloud candidate has not been compiled or run on macOS. The previous
+native launch returned `-10827` / Cocoa error `259`; its cause remains unresolved.
+Real Open/Save/Cancel, marked-text composition and visible UI acceptance remain
+separate gates. See [validation status](VALIDATION.md). Do not publish a binary or
+claim a successful native build based on the portable checks alone.
+
+## Manual native workflow
+
+The existing self-hosted workflow is manual-only and has a job-level guard that
+requires the event repository to be private. **For dispatch events created while
+the repository is public, that job is skipped before it is sent to a runner.**
+This event-time guard does not cancel private-repository jobs already queued or
+running; recheck those before changing visibility. A skipped check is not a
+passing native test or verified public CI. No public runner, automatic PR workflow,
+paid compute or new access is configured by this source proposal. Establishing
+public native CI requires a separately reviewed, appropriately isolated runner.

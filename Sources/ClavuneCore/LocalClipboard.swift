@@ -56,8 +56,96 @@ public enum LocalClipboard {
 @MainActor
 public final class PlainTranscriptTextView: NSTextView {
     /// nil keeps the production pasteboard path. A fixture can inject a sink
-    /// before invoking Copy/Cut without accessing the general clipboard.
+    /// before invoking Copy/Cut without accessing the general clipboard. An
+    /// injected sink also disables all pasteboard reads in the QA editor.
     public var clipboardWriteSink: (any ClipboardWriteSink)?
+    public var allowsSystemPasteboardRead: Bool { clipboardWriteSink == nil }
+
+    // QA does not advertise an input pasteboard or accept a dropped payload.
+    // Production keeps AppKit's native type negotiation and drag behavior.
+    public override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+        allowsSystemPasteboardRead ? super.readablePasteboardTypes : []
+    }
+
+    public override var acceptableDragTypes: [NSPasteboard.PasteboardType] {
+        allowsSystemPasteboardRead ? super.acceptableDragTypes : []
+    }
+
+    public override func validRequestor(forSendType sendType: NSPasteboard.PasteboardType?,
+                                        returnType: NSPasteboard.PasteboardType?) -> Any? {
+        guard allowsSystemPasteboardRead else { return nil }
+        return super.validRequestor(forSendType: sendType, returnType: returnType)
+    }
+
+    public override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard allowsSystemPasteboardRead else { return [] }
+        return super.draggingEntered(sender)
+    }
+
+    public override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard allowsSystemPasteboardRead else { return [] }
+        return super.draggingUpdated(sender)
+    }
+
+    public override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard allowsSystemPasteboardRead else { return false }
+        return super.prepareForDragOperation(sender)
+    }
+
+    public override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard allowsSystemPasteboardRead else { return false }
+        return super.performDragOperation(sender)
+    }
+
+    public override func paste(_ sender: Any?) {
+        guard allowsSystemPasteboardRead else { return }
+        super.paste(sender)
+    }
+
+    public override func pasteAsPlainText(_ sender: Any?) {
+        guard allowsSystemPasteboardRead else { return }
+        super.pasteAsPlainText(sender)
+    }
+
+    public override func pasteAsRichText(_ sender: Any?) {
+        guard allowsSystemPasteboardRead else { return }
+        super.pasteAsRichText(sender)
+    }
+
+    public override func pasteFont(_ sender: Any?) {
+        guard allowsSystemPasteboardRead else { return }
+        super.pasteFont(sender)
+    }
+
+    public override func pasteRuler(_ sender: Any?) {
+        guard allowsSystemPasteboardRead else { return }
+        super.pasteRuler(sender)
+    }
+
+    public override func readSelection(from pasteboard: NSPasteboard) -> Bool {
+        guard allowsSystemPasteboardRead else { return false }
+        return super.readSelection(from: pasteboard)
+    }
+
+    public override func readSelection(from pasteboard: NSPasteboard,
+                                       type: NSPasteboard.PasteboardType) -> Bool {
+        guard allowsSystemPasteboardRead else { return false }
+        return super.readSelection(from: pasteboard, type: type)
+    }
+
+    /// A review is a form control, not a code editor: Tab leaves the transcript
+    /// without changing it. Keep AppKit's explicit insertTabIgnoringFieldEditor
+    /// command and multiline Return behavior; do not intercept raw key events.
+    /// An active input-method composition retains the native text-system path.
+    public override func insertTab(_ sender: Any?) {
+        guard !hasMarkedText(), let window else { super.insertTab(sender); return }
+        window.selectNextKeyView(self)
+    }
+
+    public override func insertBacktab(_ sender: Any?) {
+        guard !hasMarkedText(), let window else { super.insertBacktab(sender); return }
+        window.selectPreviousKeyView(self)
+    }
 
     public override var writablePasteboardTypes: [NSPasteboard.PasteboardType] { [.string] }
 
